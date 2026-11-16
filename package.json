@@ -1,0 +1,15 @@
+{
+  "name": "yazo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Send the goods, not the cash. Escrowed, dollar-priced payments over Bitcoin Lightning that only the recipient can release.",
+  "license": "MIT",
+  "author": "solutiono1",
+  "scripts": {
+    "test": "node --test test/",
+    "test:watch": "node --test --watch test/",
+    "audit:staged": "bash scripts/audit-staged.sh"
+  },
+  "engines": { "node": ">=22" }
+}

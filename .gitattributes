@@ -1,0 +1,6 @@
+# Normalise line endings so scripts run on Linux and macOS judging machines.
+* text=auto eol=lf
+*.sh text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf

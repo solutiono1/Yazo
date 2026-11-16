@@ -1,0 +1,64 @@
+# ── Lightning node credentials — these ARE spending authority. Never commit. ──
+*.macaroon
+admin.macaroon
+invoice.macaroon
+readonly.macaroon
+tls.cert
+tls.key
+*.pem
+*.key
+!**/testdata/**/*.pub.key
+
+# ── Wallets, seeds, chain state ──
+wallet.db
+*.seed
+*.mnemonic
+seed.txt
+channel.backup
+channel.db
+.lnd/
+.btcd/
+.yazo-regtest/
+regtest/
+simnet/
+chaindata/
+
+# ── Secrets and runtime config ──
+.env
+.env.*
+!.env.example
+*.secret
+secrets/
+config.local.*
+
+# ── Escrow material that could settle a real invoice ──
+# Release secrets and preimages must never exist in version control.
+preimages/
+*.preimage
+release-secrets*
+
+# ── Node ──
+node_modules/
+npm-debug.log*
+.npm/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# ── Local data and recordings ──
+data/
+*.sqlite
+*.sqlite3
+*.db
+recordings/
+*.mp4
+!docs/demo-poster.png
+
+# ── OS / editor ──
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
