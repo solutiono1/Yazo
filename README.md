@@ -71,7 +71,7 @@ hold expires and the payer is refunded.
 attacker everything the server stores and proves it still cannot settle.
 
 **[SECURITY.md](SECURITY.md)** carries the full threat model, the findings from
-attacking our own code, and a register of **46 security checks** — each one an
+attacking our own code, and a register of **49 security checks** — each one an
 automated test, each one listed with the file it lives in.
 
 ### Threat model, stated honestly

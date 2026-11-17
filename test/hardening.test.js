@@ -111,3 +111,63 @@ test("open event streams are capped so they cannot exhaust the server", async ()
     server.close();
   }
 });
+
+// ------------------------------------------- live payment detection --
+
+test("a payment is seen the moment it lands, with no sweep and no polling", async () => {
+  const node = new FakeLnd();
+  const store = new MemoryStore();
+  const service = new EscrowService({ node, store, btcUsd: async () => BTC });
+  const { order } = await service.createOrder({
+    vendorId: "v",
+    payerId: "p",
+    recipientLabel: "Fatima",
+    usdCents: 4_000n,
+  });
+
+  // Nobody calls syncFromNode and no watcher is running.
+  node.payInvoice(order.paymentHash, order.quote.sats);
+  await new Promise((r) => setImmediate(r));
+
+  assert.equal((await store.get(order.id)).state, STATE.LOCKED);
+});
+
+test("a subscription is dropped once the order reaches a terminal state", async () => {
+  const node = new FakeLnd();
+  const store = new MemoryStore();
+  const service = new EscrowService({ node, store, btcUsd: async () => BTC });
+  const { order, secret } = await service.createOrder({
+    vendorId: "v",
+    payerId: "p",
+    recipientLabel: "Fatima",
+    usdCents: 4_000n,
+  });
+  assert.equal(service.subscriptions.size, 1);
+
+  node.payInvoice(order.paymentHash, order.quote.sats);
+  await new Promise((r) => setImmediate(r));
+  await service.release(order.id, secret);
+  await new Promise((r) => setImmediate(r));
+
+  assert.equal(service.subscriptions.size, 0, "a settled order must not stay subscribed");
+});
+
+test("the service works against a node with no subscription support", async () => {
+  const node = new FakeLnd();
+  delete node.subscribeInvoice; // an older node, or a different implementation
+  const store = new MemoryStore();
+  const service = new EscrowService({ node, store, btcUsd: async () => BTC });
+
+  const { order } = await service.createOrder({
+    vendorId: "v",
+    payerId: "p",
+    recipientLabel: "Fatima",
+    usdCents: 4_000n,
+  });
+  // No subscription, so the sweep is what finds it - which is the point of
+  // keeping the sweep rather than relying on the stream.
+  node.payInvoice(order.paymentHash, order.quote.sats);
+  assert.equal((await store.get(order.id)).state, STATE.AWAITING_PAYMENT);
+  await service.syncFromNode(order.id);
+  assert.equal((await store.get(order.id)).state, STATE.LOCKED);
+});

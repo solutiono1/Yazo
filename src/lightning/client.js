@@ -157,7 +157,9 @@ export class LndClient {
    * @returns {() => void} call to stop watching
    */
   subscribeInvoice(paymentHash, onUpdate) {
-    const rHash = paymentHash.toString("base64url");
+    // lnd's REST gateway rejects base64url on this path parameter
+    // ("illegal base64 data"). It wants standard base64, URL-escaped.
+    const rHash = encodeURIComponent(paymentHash.toString("base64"));
     let stopped = false;
     const req = https.request(
       {
@@ -170,29 +172,57 @@ export class LndClient {
         headers: { "Grpc-Metadata-macaroon": this.macaroon },
       },
       (res) => {
+        // Without this, a rejected subscription simply hangs for ever and the
+        // caller believes it is watching something. Surface it instead.
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          let body = "";
+          res.setEncoding("utf8");
+          res.on("data", (c) => (body += c));
+          res.on("end", () => {
+            if (!stopped) onUpdate({ error: `subscribe failed (${res.statusCode}): ${body.slice(0, 200)}` });
+          });
+          return;
+        }
         res.setEncoding("utf8");
         let buffered = "";
+
+        // Frames arrive as JSON objects, but a single frame can span several
+        // TCP chunks and lnd does not reliably terminate the last one with a
+        // newline. Splitting on newlines alone silently never emits anything,
+        // which is exactly how this went unnoticed the first time.
+        const emit = (text) => {
+          const trimmed = text.trim();
+          if (!trimmed || stopped) return true;
+          let frame;
+          try {
+            frame = JSON.parse(trimmed);
+          } catch {
+            return false; // incomplete, wait for more
+          }
+          if (frame.error) {
+            onUpdate({ error: frame.error.message ?? "stream error" });
+            return true;
+          }
+          const invoice = frame.result ?? frame;
+          if (invoice?.state) {
+            onUpdate({
+              state: invoice.state,
+              amtPaidSat: BigInt(invoice.amt_paid_sat ?? "0"),
+              settled: Boolean(invoice.settled),
+            });
+          }
+          return true;
+        };
+
         res.on("data", (chunk) => {
           buffered += chunk;
           let nl;
           while ((nl = buffered.indexOf("\n")) >= 0) {
-            const line = buffered.slice(0, nl).trim();
+            emit(buffered.slice(0, nl));
             buffered = buffered.slice(nl + 1);
-            if (!line || stopped) continue;
-            try {
-              const frame = JSON.parse(line);
-              const invoice = frame.result ?? frame;
-              if (invoice?.state) {
-                onUpdate({
-                  state: invoice.state,
-                  amtPaidSat: BigInt(invoice.amt_paid_sat ?? "0"),
-                  settled: Boolean(invoice.settled),
-                });
-              }
-            } catch {
-              /* partial frame, wait for more */
-            }
           }
+          // No newline yet: the buffer may still hold one complete frame.
+          if (buffered.trim().endsWith("}") && emit(buffered)) buffered = "";
         });
       },
     );

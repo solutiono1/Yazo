@@ -142,6 +142,9 @@ test("recovery: the node cancelled it but we died before writing the row", async
 test("recovery: the payer paid while we were down", async () => {
   const { node, service, store } = harness();
   const { order: o } = await order(service);
+  // "Down" means no live subscription, so the payment is genuinely unobserved
+  // until reconcile asks the node about it.
+  service.unwatchPayment(o.id);
   node.payInvoice(o.paymentHash, o.quote.sats);
 
   const corrections = await service.reconcile();
@@ -163,6 +166,8 @@ test("recovery survives a node that cannot answer about one order", async () => 
   const { node, service, store } = harness();
   const a = await order(service);
   const b = await order(service);
+  service.unwatchPayment(a.order.id);
+  service.unwatchPayment(b.order.id);
   node.payInvoice(b.order.paymentHash, b.order.quote.sats);
   // Delete a's invoice so lookup throws for it.
   node.invoices.delete(a.order.paymentHash.toString("hex"));

@@ -143,7 +143,7 @@ export class LndAdmin {
       let last = null;
       this.request(
         "GET",
-        `/v2/router/track/${Buffer.from(paymentHashHex, "hex").toString("base64url")}`,
+        `/v2/router/track/${encodeURIComponent(Buffer.from(paymentHashHex, "hex").toString("base64"))}`,
         undefined,
         {
           stream: true,

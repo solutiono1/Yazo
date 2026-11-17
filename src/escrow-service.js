@@ -79,6 +79,8 @@ export class EscrowService {
     this.onError = onError;
     // One order is never processed by two requests at once. See keyed-mutex.js.
     this.locks = new KeyedMutex();
+    // orderId -> unsubscribe, for live invoice subscriptions.
+    this.subscriptions = new Map();
   }
 
   /**
@@ -90,38 +92,113 @@ export class EscrowService {
    * ourselves. Without this, a crash at the wrong moment leaves a vendor
    * believing he was not paid when he was.
    */
+  /**
+   * Subscribe to an invoice so a payment is seen the moment it lands.
+   *
+   * The watcher still sweeps on its timer: a subscription is an optimisation,
+   * never the thing a refund depends on. If the stream drops, or the node
+   * restarts, or this process never subscribed at all, the sweep still finds
+   * the order. Nothing here is load-bearing for correctness.
+   */
+  watchPayment(order) {
+    if (typeof this.node.subscribeInvoice !== "function") return () => {};
+    if (this.subscriptions.has(order.id)) return this.subscriptions.get(order.id);
+
+    const stop = this.node.subscribeInvoice(order.paymentHash, (update) => {
+      if (update?.error) {
+        // The sweep is the safety net, so a dropped stream is survivable - but
+        // it must not be silent, or a subscription that never worked looks
+        // exactly like one that simply had nothing to report.
+        this.onError?.(new Error(`invoice subscription: ${update.error}`), order.id);
+        this.unwatchPayment(order.id);
+        return;
+      }
+      if (update?.state === INVOICE_STATE.ACCEPTED) {
+        this.syncFromNode(order.id).catch((e) => this.onError?.(e, order.id));
+        return;
+      }
+      if ([INVOICE_STATE.SETTLED, INVOICE_STATE.CANCELED].includes(update?.state)) {
+        this.unwatchPayment(order.id);
+      }
+    });
+
+    this.subscriptions.set(order.id, stop);
+    return stop;
+  }
+
+  unwatchPayment(orderId) {
+    const stop = this.subscriptions.get(orderId);
+    if (!stop) return;
+    this.subscriptions.delete(orderId);
+    try {
+      stop();
+    } catch {
+      /* already closed */
+    }
+  }
+
+  /** Re-subscribe to every order still awaiting payment. Used on boot. */
+  async watchLiveOrders() {
+    const live = this.store.live ? await this.store.live() : await this.store.all();
+    const watched = live.filter((o) => o.state === STATE.AWAITING_PAYMENT);
+    for (const order of watched) this.watchPayment(order);
+    return watched.length;
+  }
+
+  /** Drop every subscription. Used on shutdown. */
+  stopWatching() {
+    for (const orderId of [...this.subscriptions.keys()]) this.unwatchPayment(orderId);
+  }
+
   async reconcile() {
     const corrections = [];
-    const live = this.store.live ? await this.store.live() : await this.store.all();
-    for (const order of live) {
-      let invoice;
-      try {
-        invoice = await this.node.lookupInvoice(order.paymentHash);
-      } catch (e) {
-        this.onError?.(e, order.id);
-        continue;
-      }
+    const snapshot = this.store.live ? await this.store.live() : await this.store.all();
 
-      // The node settled it, or cancelled it, but we never recorded that.
-      // A correction is written through #repair so it lands in the audit trail
-      // like any other transition: a state that changed with no history entry
-      // is indistinguishable from tampering.
-      if (invoice.state === INVOICE_STATE.SETTLED && order.state !== STATE.RELEASED) {
-        await this.store.put(this.#repair(order, STATE.RELEASED));
-        corrections.push({ id: order.id, from: order.state, to: STATE.RELEASED });
-        continue;
-      }
-      if (invoice.state === INVOICE_STATE.CANCELED && order.state !== STATE.REFUNDED) {
-        await this.store.put(this.#repair(order, STATE.REFUNDED));
-        corrections.push({ id: order.id, from: order.state, to: STATE.REFUNDED });
-        continue;
-      }
-      // Payment arrived while we were down.
-      if (invoice.state === INVOICE_STATE.ACCEPTED && order.state === STATE.AWAITING_PAYMENT) {
-        const locked = apply(order, EVENT.PAYMENT_LOCKED, this.now(), { amountSats: invoice.amtPaidSat });
-        await this.store.put(locked);
-        corrections.push({ id: order.id, from: order.state, to: STATE.LOCKED });
-      }
+    for (const stale of snapshot) {
+      // Each correction runs under the same per-order lock as ordinary traffic,
+      // and re-reads the order inside it. Reconcile is the one money-touching
+      // path that could otherwise write from a snapshot: if it ever ran beside
+      // live requests it would overwrite a legitimate release with the state it
+      // read beforehand, erasing that transition from the order row. Today
+      // main.js awaits it before listening, so it cannot overlap - this makes
+      // the invariant total rather than conventional, and keeps it safe to run
+      // reconcile on a timer or an admin route later.
+      const correction = await this.locks.run(stale.id, async () => {
+        const order = await this.store.get(stale.id);
+        if (!order) return null;
+
+        let invoice;
+        try {
+          invoice = await this.node.lookupInvoice(order.paymentHash);
+        } catch (e) {
+          this.onError?.(e, order.id);
+          return null;
+        }
+
+        // The node settled it, or cancelled it, but we never recorded that.
+        // A correction is written through #repair so it lands in the audit
+        // trail like any other transition: a state that changed with no
+        // history entry is indistinguishable from tampering.
+        if (invoice.state === INVOICE_STATE.SETTLED && order.state !== STATE.RELEASED) {
+          await this.store.put(this.#repair(order, STATE.RELEASED));
+          return { id: order.id, from: order.state, to: STATE.RELEASED };
+        }
+        if (invoice.state === INVOICE_STATE.CANCELED && order.state !== STATE.REFUNDED) {
+          await this.store.put(this.#repair(order, STATE.REFUNDED));
+          return { id: order.id, from: order.state, to: STATE.REFUNDED };
+        }
+        // Payment arrived while we were down.
+        if (invoice.state === INVOICE_STATE.ACCEPTED && order.state === STATE.AWAITING_PAYMENT) {
+          const locked = apply(order, EVENT.PAYMENT_LOCKED, this.now(), {
+            amountSats: invoice.amtPaidSat,
+          });
+          await this.store.put(locked);
+          return { id: order.id, from: order.state, to: STATE.LOCKED };
+        }
+        return null;
+      });
+
+      if (correction) corrections.push(correction);
     }
     return corrections;
   }
@@ -161,6 +238,7 @@ export class EscrowService {
 
     order = apply(order, EVENT.INVOICE_CREATED, this.now(), { paymentRequest });
     await this.store.put(order);
+    this.watchPayment(order);
 
     return { order, paymentRequest, secret: release.secret };
   }

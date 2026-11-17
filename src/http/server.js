@@ -63,7 +63,11 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
 
   // Each open stream costs two timers and a socket for as long as it lives,
   // so the number of them is bounded rather than left to the client.
-  const MAX_STREAMS = Number(process.env.YAZO_MAX_STREAMS ?? 200);
+  // A bad value must not silently switch the cap off: Number("lots") is NaN,
+  // and `openStreams >= NaN` is false for every value, so the limit would
+  // disappear without a word. Fall back to the default instead.
+  const configuredStreams = Number.parseInt(process.env.YAZO_MAX_STREAMS ?? "", 10);
+  const MAX_STREAMS = Number.isSafeInteger(configuredStreams) && configuredStreams > 0 ? configuredStreams : 200;
   let openStreams = 0;
 
   const clientKey = (req) =>
@@ -214,14 +218,17 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
         if (openStreams >= MAX_STREAMS) {
           return send(res, 503, { error: "too many open streams, retry shortly" }, { "Retry-After": "5" });
         }
-        openStreams += 1;
 
+        // Claim the slot only once the response is actually open. Counting it
+        // before writeHead means a throw there leaks the slot for the lifetime
+        // of the process.
         res.writeHead(200, {
           "Content-Type": "text/event-stream; charset=utf-8",
           "Cache-Control": "no-store",
           Connection: "keep-alive",
           ...SECURITY_HEADERS,
         });
+        openStreams += 1;
 
         let lastState = null;
         const push = (order) => {

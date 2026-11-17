@@ -53,6 +53,11 @@ async function main() {
     log("reconciled: nothing to correct");
   }
 
+  // Subscribe to anything still awaiting payment, so a payer sees the lock
+  // immediately rather than on the next sweep.
+  const watching = await service.watchLiveOrders();
+  if (watching) log(`subscribed to ${watching} order(s) awaiting payment`);
+
   const watcher = new Watcher({
     service,
     intervalMs: config.sweepMs,
@@ -72,6 +77,7 @@ async function main() {
   const shutdown = (signal) => {
     log(`${signal}: shutting down`);
     watcher.stop();
+    service.stopWatching();
     server.close(() => {
       store.close();
       process.exit(0);

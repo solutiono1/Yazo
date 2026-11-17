@@ -90,7 +90,22 @@ code — was defeated by concurrency.
 one request at a time, while different orders still run freely. Tests in
 `test/concurrency.test.js`.
 
-### 3. Lesser items, also fixed
+### 3. A subscription that never worked looked exactly like one with nothing to report
+
+`subscribeInvoice` was written, shipped and described in a commit message as
+giving payers immediate confirmation — and nothing ever called it. When it was
+wired in, it still produced no updates: lnd's REST gateway rejects `base64url`
+on that path parameter, the frame parser only emitted on a newline that lnd
+does not reliably send, and HTTP error statuses were never checked, so a
+rejected subscription hung for ever while appearing healthy.
+
+Fixed on all three counts, and subscription errors now surface through
+`onError` instead of returning quietly. Payment detection against a real node
+went from up to 15 seconds (the sweep) to **217 ms**. The sweep remains the
+safety net: a subscription is an optimisation and is never what a refund
+depends on.
+
+### 4. Lesser items, also fixed
 
 - Order ids were time-based and sequential, letting anyone walk the whole book.
   Now 128 bits of randomness.
@@ -102,7 +117,7 @@ one request at a time, while different orders still run freely. Tests in
 - `.gitignore` used `regtest/`, which matched *any* directory of that name and
   silently excluded `scripts/regtest/`. Anchored to the repo root.
 
-## The register — 46 checks
+## The register — 49 checks
 
 Every line is an automated test. The count is the number of checks, not a
 marketing number; if a check is removed, this table shrinks.
@@ -192,6 +207,14 @@ marketing number; if a check is removed, this table shrinks.
 | 44 | Order ids that are not ours are rejected | `http.test.js` |
 | 45 | Internal errors never leak details | `http.test.js` |
 | 46 | Open event streams are capped | `hardening.test.js` |
+
+### Live payment detection (3)
+
+| # | Check | Where |
+|---|---|---|
+| 47 | A payment is seen the moment it lands, with no sweep | `hardening.test.js` |
+| 48 | A subscription is dropped once an order is terminal | `hardening.test.js` |
+| 49 | The service still works against a node with no subscription support | `hardening.test.js` |
 
 ## Operational notes
 
