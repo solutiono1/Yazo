@@ -70,6 +70,10 @@ hold expires and the payer is refunded.
 `test/attack.test.js` asserts this directly, including a test that hands an
 attacker everything the server stores and proves it still cannot settle.
 
+**[SECURITY.md](SECURITY.md)** carries the full threat model, the findings from
+attacking our own code, and a register of **46 security checks** — each one an
+automated test, each one listed with the file it lives in.
+
 ### Threat model, stated honestly
 
 The two secret modes are **not** equally strong, and we say so rather than
@@ -98,7 +102,11 @@ with `hodl_invoice`.
 
 ## Status
 
-**Working end to end on real Lightning nodes.** Both journeys — delivered and
+**Working end to end on real Lightning nodes**, with an HTTP API, durable
+storage, a watcher that refunds undelivered orders by itself, and crash
+recovery that reconciles against the node on boot. 91 tests.
+
+Both journeys — delivered and
 undelivered — run against a live two-node regtest network, and the channel
 balances settle to the sat:
 
@@ -116,9 +124,10 @@ Next: the mobile-first web interface.
 ## Running it
 
 ```bash
-npm test                        # 51 tests, no network or database required
-node scripts/regtest/up.mjs     # build a local 2-node Lightning network
-node scripts/demo.mjs           # watch both journeys run for real
+npm test                # 91 tests, no network, node or database required
+npm run regtest:up      # build a local 2-node Lightning network
+npm run demo            # watch both journeys run for real
+npm start               # the API on http://127.0.0.1:3000
 ```
 
 `npm test` needs nothing but Node — the core is pure functions over plain

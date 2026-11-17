@@ -61,6 +61,11 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
     creates.prune();
   }, 60_000).unref?.();
 
+  // Each open stream costs two timers and a socket for as long as it lives,
+  // so the number of them is bounded rather than left to the client.
+  const MAX_STREAMS = Number(process.env.YAZO_MAX_STREAMS ?? 200);
+  let openStreams = 0;
+
   const clientKey = (req) =>
     // No proxy is trusted by default: a forwarded header is only honoured when
     // the operator opts in, otherwise a client could spoof its way around the
@@ -206,6 +211,10 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
         const orderId = requireOrderId(id);
         const existing = await service.store.get(orderId);
         if (!existing) return send(res, 404, { error: "unknown order" });
+        if (openStreams >= MAX_STREAMS) {
+          return send(res, 503, { error: "too many open streams, retry shortly" }, { "Retry-After": "5" });
+        }
+        openStreams += 1;
 
         res.writeHead(200, {
           "Content-Type": "text/event-stream; charset=utf-8",
@@ -228,8 +237,7 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
             if (!current) return;
             push(current);
             if ([STATE.RELEASED, STATE.REFUNDED, STATE.VOID].includes(current.state)) {
-              clearInterval(poll);
-              clearInterval(beat);
+              cleanup();
               res.end();
             }
           } catch {
@@ -238,10 +246,16 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
         }, 1000);
         const beat = setInterval(() => res.write(": keep-alive\n\n"), 20_000);
 
-        req.on("close", () => {
+        let closed = false;
+        const cleanup = () => {
+          if (closed) return;
+          closed = true;
+          openStreams -= 1;
           clearInterval(poll);
           clearInterval(beat);
-        });
+        };
+        req.on("close", cleanup);
+        res.on("close", cleanup);
       },
     },
   ];
@@ -272,6 +286,7 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
     }
   });
 
+  server.streamCount = () => openStreams;
   server.limiters = { general, releases, creates };
   return server;
 }

@@ -27,6 +27,7 @@ import {
 import { quote } from "./core/money.js";
 import { newReleaseSecret, recoverPreimage, MODE_QR } from "./core/secret.js";
 import { INVOICE_STATE } from "./lightning/client.js";
+import { KeyedMutex } from "./keyed-mutex.js";
 
 /** Swappable persistence. The default keeps everything in memory. */
 export class MemoryStore {
@@ -76,6 +77,8 @@ export class EscrowService {
     this.btcUsd = btcUsd;
     this.idFactory = idFactory;
     this.onError = onError;
+    // One order is never processed by two requests at once. See keyed-mutex.js.
+    this.locks = new KeyedMutex();
   }
 
   /**
@@ -99,17 +102,17 @@ export class EscrowService {
         continue;
       }
 
-      // The node settled it but we never recorded that.
+      // The node settled it, or cancelled it, but we never recorded that.
+      // A correction is written through #repair so it lands in the audit trail
+      // like any other transition: a state that changed with no history entry
+      // is indistinguishable from tampering.
       if (invoice.state === INVOICE_STATE.SETTLED && order.state !== STATE.RELEASED) {
-        const repaired = { ...order, state: STATE.RELEASED, settledAt: order.settledAt ?? this.now() };
-        await this.store.put(Object.freeze(repaired));
+        await this.store.put(this.#repair(order, STATE.RELEASED));
         corrections.push({ id: order.id, from: order.state, to: STATE.RELEASED });
         continue;
       }
-      // The node cancelled it but we never recorded that.
       if (invoice.state === INVOICE_STATE.CANCELED && order.state !== STATE.REFUNDED) {
-        const repaired = { ...order, state: STATE.REFUNDED, settledAt: order.settledAt ?? this.now() };
-        await this.store.put(Object.freeze(repaired));
+        await this.store.put(this.#repair(order, STATE.REFUNDED));
         corrections.push({ id: order.id, from: order.state, to: STATE.REFUNDED });
         continue;
       }
@@ -167,6 +170,10 @@ export class EscrowService {
    * has paid: the node reports an ACCEPTED (held) HTLC.
    */
   async syncFromNode(orderId) {
+    return this.locks.run(orderId, () => this.#syncLocked(orderId));
+  }
+
+  async #syncLocked(orderId) {
     const order = await this.#load(orderId);
     if (order.state !== STATE.AWAITING_PAYMENT) return order;
 
@@ -182,6 +189,10 @@ export class EscrowService {
    * to the vendor; if it is wrong, the attempt is counted against a hard cap.
    */
   async release(orderId, presentedSecret) {
+    return this.locks.run(orderId, () => this.#releaseLocked(orderId, presentedSecret));
+  }
+
+  async #releaseLocked(orderId, presentedSecret) {
     const order = await this.#load(orderId);
 
     const preimage = recoverPreimage(presentedSecret, order.salt, order.paymentHash, order.secretMode);
@@ -193,7 +204,9 @@ export class EscrowService {
         if (releaseIsBlocked(counted)) {
           // Allowance spent: return the payer's money rather than let a
           // guesser keep trying.
-          await this.refund(orderId, "too many failed release attempts");
+          // Already inside this order lock; calling the public refund()
+          // here would wait on a lock we ourselves hold.
+          await this.#refundLocked(orderId, "too many failed release attempts");
         }
       }
       throw new EscrowError("that code is not valid for this order");
@@ -209,6 +222,10 @@ export class EscrowService {
 
   /** Return the payer's money. Always available until the order is released. */
   async refund(orderId, reason = "cancelled") {
+    return this.locks.run(orderId, () => this.#refundLocked(orderId, reason));
+  }
+
+  async #refundLocked(orderId, reason = "cancelled") {
     const order = await this.#load(orderId);
     const now = this.now();
     const event = isRefundDue(order, now) && now > order.holdExpiresAt ? EVENT.HOLD_EXPIRED : EVENT.CANCEL;
@@ -239,6 +256,22 @@ export class EscrowService {
       }
     }
     return refunded;
+  }
+
+  /**
+   * Force an order to match what the node reports, and record that we did.
+   * This deliberately bypasses the state machine - the node has already moved
+   * the money, so refusing the transition would only keep us wrong - but it
+   * still appends to history so the correction is visible afterwards.
+   */
+  #repair(order, state) {
+    const at = this.now();
+    return Object.freeze({
+      ...order,
+      state,
+      settledAt: order.settledAt ?? at,
+      history: Object.freeze([...order.history, { at, event: "RECONCILED", state }]),
+    });
   }
 
   async #load(orderId) {
