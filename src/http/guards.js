@@ -12,6 +12,35 @@ export class BadRequest extends Error {
   }
 }
 
+/** No link key was presented at all. */
+export class Unauthorized extends Error {
+  constructor(message = "a link key is required") {
+    super(message);
+    this.status = 401;
+  }
+}
+
+/** A real link key, but not one that carries this capability. */
+export class Forbidden extends Error {
+  constructor(message = "this link does not allow that") {
+    super(message);
+    this.status = 403;
+  }
+}
+
+/**
+ * The order does not exist, OR the key does not match it.
+ *
+ * Deliberately the same answer for both. Distinguishing them would turn every
+ * endpoint into an oracle for which order ids are real.
+ */
+export class NotFound extends Error {
+  constructor(message = "unknown order") {
+    super(message);
+    this.status = 404;
+  }
+}
+
 export class TooManyRequests extends Error {
   constructor(retryAfterSeconds) {
     super("too many requests");
@@ -82,6 +111,33 @@ export function optionalEnum(body, field, allowed, fallback) {
     throw new BadRequest(`${field} must be one of: ${allowed.join(", ")}`, field);
   }
   return value;
+}
+
+/**
+ * Pull the link key off a request.
+ *
+ * Two channels, deliberately not equal:
+ *
+ *   Authorization: Bearer <key>   the real one. The UI keeps the key in the
+ *                                 URL fragment, which browsers never send to
+ *                                 a server, and attaches it per request.
+ *   ?k=<key>                      a convenience for curl, EventSource and
+ *                                 anything that cannot set a header. Query
+ *                                 strings land in logs, history and Referer
+ *                                 headers, so the router refuses to let this
+ *                                 channel carry anything but `view`.
+ */
+export function readLinkKey(req, url) {
+  const header = req.headers.authorization;
+  if (typeof header === "string") {
+    const match = /^Bearer\s+(\S+)$/i.exec(header.trim());
+    if (match) return { key: match[1], channel: "header" };
+  }
+  const fromQuery = url?.searchParams?.get("k");
+  if (typeof fromQuery === "string" && fromQuery.length > 0) {
+    return { key: fromQuery, channel: "query" };
+  }
+  return null;
 }
 
 /** Order ids are issued by us; reject anything that is not our shape. */

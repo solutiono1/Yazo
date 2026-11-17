@@ -19,10 +19,13 @@ async function harness() {
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${server.address().port}`;
 
-  const call = async (method, path, body) => {
+  const call = async (method, path, body, key) => {
+    const headers = {};
+    if (body) headers["Content-Type"] = "application/json";
+    if (key) headers.Authorization = `Bearer ${key}`;
     const res = await fetch(base + path, {
       method,
-      headers: body ? { "Content-Type": "application/json" } : {},
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const text = await res.text();
@@ -42,7 +45,36 @@ async function harness() {
     usdCents: "4000",
   };
 
-  return { node, store, clock, service, server, call, base, validOrder, close: () => server.close() };
+  /** Create an order and hand back its id, secret and the four link keys. */
+  const open = async (overrides = {}) => {
+    const created = await call("POST", "/api/orders", { ...validOrder, ...overrides });
+    const keys = Object.fromEntries(
+      Object.entries(created.json.links).map(([role, link]) => [role, link.key]),
+    );
+    return { created, order: created.json.order, secret: created.json.secret, keys };
+  };
+
+  /** Move an order to LOCKED, the state where money is actually at stake. */
+  const pay = async (orderId) => {
+    const full = await store.get(orderId);
+    node.payInvoice(full.paymentHash, full.quote.sats);
+    await service.syncFromNode(orderId);
+    return full;
+  };
+
+  return {
+    node,
+    store,
+    clock,
+    service,
+    server,
+    call,
+    open,
+    pay,
+    base,
+    validOrder,
+    close: () => server.close(),
+  };
 }
 
 test("health responds and carries the hardening headers", async () => {
@@ -64,18 +96,19 @@ test("health responds and carries the hardening headers", async () => {
 test("creating an order returns the secret exactly once", async () => {
   const h = await harness();
   try {
-    const created = await h.call("POST", "/api/orders", h.validOrder);
+    const { created, order, secret, keys } = await h.open();
     assert.equal(created.status, 201);
-    const { order, secret, paymentRequest } = created.json;
     assert.ok(secret && secret.length > 10);
-    assert.ok(paymentRequest.startsWith("lnbcrt"));
+    assert.ok(created.json.paymentRequest.startsWith("lnbcrt"));
     assert.equal(order.amount.sats, "42106");
     assert.equal(order.state, STATE.AWAITING_PAYMENT);
 
-    // Fetching it again never reveals the secret.
-    const fetched = await h.call("GET", `/api/orders/${order.id}`);
-    assert.equal(fetched.status, 200);
-    assert.ok(!fetched.text.includes(secret));
+    // Fetching it again never reveals the secret - with any of the four links.
+    for (const key of Object.values(keys)) {
+      const fetched = await h.call("GET", `/api/orders/${order.id}`, undefined, key);
+      assert.equal(fetched.status, 200);
+      assert.ok(!fetched.text.includes(secret));
+    }
   } finally {
     h.close();
   }
@@ -84,13 +117,16 @@ test("creating an order returns the secret exactly once", async () => {
 test("the salt never leaves the server", async () => {
   const h = await harness();
   try {
-    const created = await h.call("POST", "/api/orders", h.validOrder);
-    const id = created.json.order.id;
-    const fetched = await h.call("GET", `/api/orders/${id}`);
+    const { created, order, keys } = await h.open();
+    const fetched = await h.call("GET", `/api/orders/${order.id}`, undefined, keys.payer);
     // Salt plus payment hash would allow offline brute force of a typed code.
     assert.ok(!("salt" in fetched.json.order));
     assert.doesNotMatch(created.text, /"salt"/);
     assert.doesNotMatch(fetched.text, /"salt"/);
+    // The stored grant digests are server-side too: a response that carried
+    // them would hand an attacker the material to confirm a guessed key.
+    assert.ok(!("grants" in fetched.json.order));
+    assert.doesNotMatch(fetched.text, /"grants"/);
   } finally {
     h.close();
   }
@@ -161,13 +197,10 @@ test("path traversal cannot escape the public directory", async () => {
 test("a wrong code is refused and the money stays held", async () => {
   const h = await harness();
   try {
-    const created = await h.call("POST", "/api/orders", h.validOrder);
-    const order = created.json.order;
-    const full = await h.store.get(order.id);
-    h.node.payInvoice(full.paymentHash, full.quote.sats);
-    await h.service.syncFromNode(order.id);
+    const { order, keys } = await h.open();
+    await h.pay(order.id);
 
-    const res = await h.call("POST", `/api/orders/${order.id}/release`, { code: "NOPE" });
+    const res = await h.call("POST", `/api/orders/${order.id}/release`, { code: "NOPE" }, keys.vendor);
     assert.equal(res.status, 409);
     assert.equal((await h.store.get(order.id)).state, STATE.LOCKED);
   } finally {
@@ -178,13 +211,10 @@ test("a wrong code is refused and the money stays held", async () => {
 test("the right code releases, and the receipt verifies", async () => {
   const h = await harness();
   try {
-    const created = await h.call("POST", "/api/orders", h.validOrder);
-    const { order, secret } = created.json;
-    const full = await h.store.get(order.id);
-    h.node.payInvoice(full.paymentHash, full.quote.sats);
-    await h.service.syncFromNode(order.id);
+    const { order, secret, keys } = await h.open();
+    await h.pay(order.id);
 
-    const res = await h.call("POST", `/api/orders/${order.id}/release`, { code: secret });
+    const res = await h.call("POST", `/api/orders/${order.id}/release`, { code: secret }, keys.vendor);
     assert.equal(res.status, 200);
     assert.equal(res.json.order.state, STATE.RELEASED);
 
@@ -201,14 +231,14 @@ test("the right code releases, and the receipt verifies", async () => {
 test("hammering the release endpoint is rate limited", async () => {
   const h = await harness();
   try {
-    const created = await h.call("POST", "/api/orders", h.validOrder);
-    const order = created.json.order;
+    const { order, keys } = await h.open();
     const statuses = [];
     for (let i = 0; i < 14; i += 1) {
-      statuses.push((await h.call("POST", `/api/orders/${order.id}/release`, { code: `g${i}` })).status);
+      const res = await h.call("POST", `/api/orders/${order.id}/release`, { code: `g${i}` }, keys.vendor);
+      statuses.push(res.status);
     }
     assert.ok(statuses.includes(429), "the limiter must kick in");
-    const limited = await h.call("POST", `/api/orders/${order.id}/release`, { code: "x" });
+    const limited = await h.call("POST", `/api/orders/${order.id}/release`, { code: "x" }, keys.vendor);
     assert.equal(limited.status, 429);
     assert.ok(Number(limited.headers.get("retry-after")) > 0);
   } finally {
@@ -230,11 +260,12 @@ test("unknown routes and wrong methods are handled cleanly", async () => {
 test("an internal error never leaks its details", async () => {
   const h = await harness();
   try {
+    const { order, keys } = await h.open();
     // Break the store so the handler throws something unexpected.
     h.service.store.get = async () => {
       throw new Error("ECONNREFUSED postgres://user:hunter2@10.0.0.5/yazo");
     };
-    const res = await h.call("GET", "/api/orders/ord_abcdefghijklmno");
+    const res = await h.call("GET", `/api/orders/${order.id}`, undefined, keys.payer);
     assert.equal(res.status, 500);
     assert.equal(res.json.error, "something went wrong");
     assert.doesNotMatch(res.text, /hunter2|postgres|10\.0\.0\.5/);

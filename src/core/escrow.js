@@ -4,6 +4,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { quoteIsFresh } from "./money.js";
 import { paymentHashFor } from "./secret.js";
+import { assertGrants, newGrantSet } from "./capability.js";
 
 export const STATE = Object.freeze({
   DRAFT: "DRAFT", // order exists, nothing at stake yet
@@ -60,6 +61,7 @@ export function createOrder({
   recipientLabel,
   q,
   release,
+  grants,
   holdMs = DEFAULT_HOLD_MS,
   now,
 }) {
@@ -71,6 +73,10 @@ export function createOrder({
   if (!q || typeof q.sats !== "bigint") throw new EscrowError("a quote is required");
   if (!release?.paymentHash || !release?.salt) throw new EscrowError("a release secret is required");
   requiredFinalCltvBlocks(holdMs); // validate up front, not at invoice time
+  // An order with no grants is unreachable, not public. A caller that forgets
+  // to mint them gets a set whose keys were never returned to anyone, so the
+  // failure mode is "nobody can touch this order" rather than "everybody can".
+  const linkGrants = assertGrants(grants ?? newGrantSet().digests);
 
   return Object.freeze({
     id,
@@ -83,6 +89,9 @@ export function createOrder({
     paymentHash: release.paymentHash,
     salt: release.salt,
     secretMode: release.mode,
+    // sha256 of each role's link key. The keys themselves are returned once,
+    // at creation, and never stored. See core/capability.js.
+    grants: linkGrants,
     holdMs,
     createdAt: now,
     invoice: null,

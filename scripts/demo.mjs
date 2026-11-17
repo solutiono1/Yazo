@@ -13,6 +13,7 @@ import { EscrowService } from "../src/escrow-service.js";
 import { LndClient, INVOICE_STATE } from "../src/lightning/client.js";
 import { STATE } from "../src/core/escrow.js";
 import { formatUsd } from "../src/core/money.js";
+import { createServer } from "../src/http/server.js";
 import { NODES, NETWORK, sleep } from "./regtest/config.mjs";
 import { LndAdmin } from "./regtest/lnd-admin.mjs";
 
@@ -41,6 +42,19 @@ async function main() {
 
   const service = new EscrowService({ node: bobNode, btcUsd: async () => BTC_USD });
 
+  // The authorisation step below is run over real HTTP rather than by calling
+  // the service directly, because the router is where authorisation lives and
+  // a demo that skipped it would be proving nothing.
+  const api = createServer({ service });
+  await new Promise((r) => api.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${api.address().port}`;
+  const asRole = (method, path, key, body) =>
+    fetch(base + path, {
+      method,
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
   console.log(bold("\n═══ YAZO ═══  Send the goods, not the cash.\n"));
   // Yazo authenticates with invoice.macaroon, which can create and settle
   // invoices and nothing else. It cannot read node state and it cannot send
@@ -57,7 +71,7 @@ async function main() {
   console.log(bold("\n── Journey 1: the rice arrives ──"));
 
   step(1, "Chidi in London orders $40 of rice from Mama's Shop in Kano");
-  const { order, paymentRequest, secret } = await service.createOrder({
+  const { order, paymentRequest, secret, links } = await service.createOrder({
     vendorId: "v_mamas_shop",
     payerId: "p_chidi_london",
     recipientLabel: "Fatima",
@@ -68,6 +82,10 @@ async function main() {
   note(`invoice ${paymentRequest.slice(0, 40)}...`);
   note(`payment hash ${order.paymentHash.toString("hex").slice(0, 32)}...`);
   console.log(`     ${bold("Fatima's code:")} ${bold(green(secret))}  ${dim("(sent to her phone, never stored)")}`);
+  note("four links go out, and no two of them can do the same things:");
+  for (const link of Object.values(links)) {
+    note(`  ${link.role.padEnd(10)} ${link.key}  can: ${link.capabilities.join(", ")}`);
+  }
 
   step(2, "Chidi pays. The money locks in the Lightning network");
   const status = await alice.payHeld(paymentRequest);
@@ -89,7 +107,19 @@ async function main() {
   }
   held(`invoice still ${await invoiceState(bobNode, order)} — nothing moved`);
 
-  step(4, "The rice arrives. Fatima shows her code");
+  step(4, "The vendor hands over the rice, then tries to cancel and keep both");
+  const grab = await asRole("POST", `/api/orders/${order.id}/cancel`, links.vendor.key, {});
+  good(`refused with ${grab.status}: ${(await grab.json()).error}`);
+  const payerTriesToRelease = await asRole(
+    "POST",
+    `/api/orders/${order.id}/release`,
+    links.payer.key,
+    { code: secret },
+  );
+  good(`and the payer's link cannot release either: ${payerTriesToRelease.status}`);
+  held(`invoice still ${await invoiceState(bobNode, order)} — the order id is not a password`);
+
+  step(5, "The rice arrives. Fatima shows her code");
   const { order: released, receipt } = await service.release(order.id, secret);
   good(`order state: ${released.state}`);
   good(`invoice state: ${await invoiceState(bobNode, order)} — the vendor has been paid`);
@@ -99,7 +129,7 @@ async function main() {
   // ───────────────────────────── journey 2: refunded ───────────────────────
   console.log(bold("\n\n── Journey 2: the rice never arrives ──"));
 
-  step(5, "Chidi orders again, and pays again");
+  step(6, "Chidi orders again, and pays again");
   const second = await service.createOrder({
     vendorId: "v_mamas_shop",
     payerId: "p_chidi_london",
@@ -116,7 +146,7 @@ async function main() {
   await service.syncFromNode(second.order.id);
   held(`invoice state: ${await invoiceState(bobNode, second.order)} — held again`);
 
-  step(6, "No delivery. The hold window passes");
+  step(7, "No delivery. The hold window passes");
   note("(the demo expires it immediately; in production this is a 6 hour window)");
   const refunded = await service.refund(second.order.id, "no delivery");
   good(`order state: ${refunded.state}`);
@@ -133,6 +163,9 @@ async function main() {
   console.log(
     `\n  ${bold("The money only ever moved when the recipient's secret produced the preimage.")}\n`,
   );
+
+  service.stopWatching();
+  api.close();
 }
 
 main().catch((e) => {

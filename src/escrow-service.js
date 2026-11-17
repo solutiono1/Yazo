@@ -25,7 +25,8 @@ import {
   EscrowError,
 } from "./core/escrow.js";
 import { quote } from "./core/money.js";
-import { newReleaseSecret, recoverPreimage, MODE_QR } from "./core/secret.js";
+import { newReleaseSecret, recoverPreimage, MODE_QR, paymentHashFor } from "./core/secret.js";
+import { newGrantSet, roleFor, capabilitiesOf } from "./core/capability.js";
 import { INVOICE_STATE } from "./lightning/client.js";
 import { KeyedMutex } from "./keyed-mutex.js";
 
@@ -206,14 +207,19 @@ export class EscrowService {
   /**
    * Create an order and its hold invoice.
    *
-   * Returns the release secret EXACTLY ONCE. The caller must deliver it to the
-   * recipient and then forget it: it is not stored, and it cannot be recovered.
+   * Returns, EXACTLY ONCE and never again:
+   *   - the release secret, for the recipient
+   *   - one link key per role, each carrying only that role's capabilities
+   *
+   * Neither is stored. The caller must deliver each to its holder and then
+   * forget it; nothing here can be recovered afterwards.
    */
   async createOrder({ vendorId, payerId, recipientLabel, usdCents, mode = MODE_QR, holdMs, memo }) {
     const now = this.now();
     const price = await this.btcUsd();
     const q = quote(usdCents, price, now);
     const release = newReleaseSecret(mode);
+    const grantSet = newGrantSet();
 
     let order = createOrder({
       id: this.idFactory(),
@@ -222,6 +228,7 @@ export class EscrowService {
       recipientLabel,
       q,
       release,
+      grants: grantSet.digests,
       holdMs,
       now,
     });
@@ -240,7 +247,59 @@ export class EscrowService {
     await this.store.put(order);
     this.watchPayment(order);
 
-    return { order, paymentRequest, secret: release.secret };
+    return {
+      order,
+      paymentRequest,
+      secret: release.secret,
+      links: Object.freeze(
+        Object.fromEntries(
+          Object.entries(grantSet.keys).map(([role, key]) => [
+            role,
+            Object.freeze({ role, key, capabilities: capabilitiesOf(role) }),
+          ]),
+        ),
+      ),
+    };
+  }
+
+  /**
+   * Resolve a presented link key to the role it grants on this order.
+   *
+   * Returns null for an unknown order AND for a key that matches nothing, so
+   * a caller cannot tell the two apart and use the endpoint to discover which
+   * order ids exist.
+   */
+  async authorise(orderId, key) {
+    const order = await this.store.get(orderId);
+    if (!order) return null;
+    const role = roleFor(order.grants, key);
+    return role ? { order, role } : null;
+  }
+
+  /**
+   * The public proof that an order was released.
+   *
+   * The preimage is not ours to remember - we never store it - so it is read
+   * back from the node, which has held it since settlement. That is not a
+   * leak: settling an HTLC reveals the preimage to every node on the payment
+   * path, and it discloses nothing about the recipient's secret, which is
+   * salted and hashed to produce it.
+   */
+  async receiptFor(orderId) {
+    const order = await this.#load(orderId);
+    if (order.state !== STATE.RELEASED) {
+      throw new EscrowError("only a released order has a receipt");
+    }
+    const invoice = await this.node.lookupInvoice(order.paymentHash);
+    const preimage = invoice.rPreimage;
+    if (!Buffer.isBuffer(preimage) || preimage.length !== 32) {
+      throw new EscrowError("the node has no preimage for this order yet");
+    }
+    // Never serve a proof we have not checked ourselves.
+    if (!paymentHashFor(preimage).equals(order.paymentHash)) {
+      throw new EscrowError("the node returned a preimage that does not match this order");
+    }
+    return receipt(order, preimage);
   }
 
   /**

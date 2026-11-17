@@ -120,10 +120,16 @@ export class LndClient {
 
   async lookupInvoice(paymentHash) {
     const res = await this.#request("GET", `/v1/invoice/${paymentHash.toString("hex")}`);
+    // lnd returns an all-zero r_preimage until the invoice actually settles,
+    // so an unsettled invoice must report null rather than 32 zero bytes -
+    // that value is the right shape and is not a key.
+    const raw = res.r_preimage ? Buffer.from(res.r_preimage, "base64") : null;
+    const rPreimage = raw && raw.length === 32 && raw.some((b) => b !== 0) ? raw : null;
     return {
       state: res.state,
       amtPaidSat: BigInt(res.amt_paid_sat ?? "0"),
       settled: Boolean(res.settled),
+      rPreimage,
     };
   }
 

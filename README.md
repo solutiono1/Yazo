@@ -40,8 +40,11 @@ on a chain. That is who Yazo is built for first.
 ```
 Payer (London)          Yazo server            Recipient (Kano)        Vendor
      |                  stores ONLY:                   |                   |
-     |                  {salt, paymentHash}            |                   |
+     |                  {salt, paymentHash,            |                   |
+     |                   4 grant digests}              |                   |
   1. order $40 ──────────────> issues hold invoice      |                   |
+     |              four one-role links go out: payer, recipient,          |
+     |              vendor, proof — each can do only its own job           |
   2. pays ───────────> HTLC LOCKED in the network       |                   |
      |                        |                  3. gets secret (QR)        |
      |                        |                         └── shows code ──>  |
@@ -49,6 +52,8 @@ Payer (London)          Yazo server            Recipient (Kano)        Vendor
      |                   4. derives preimage, settles ──────────> PAID in seconds
      |
   5. no code before timeout ──> invoice cancelled ──> REFUNDED automatically
+     (only the PAYER's link can trigger this — not the vendor's, not a copy
+      of the order id forwarded in a group chat)
 ```
 
 ## The guarantee
@@ -70,8 +75,32 @@ hold expires and the payer is refunded.
 `test/attack.test.js` asserts this directly, including a test that hands an
 attacker everything the server stores and proves it still cannot settle.
 
+### The order id is not a password
+
+Four people touch one order — the payer, the recipient, the vendor, and
+whoever gets sent a receipt afterwards — and they do not all get to do the
+same things. The payer can change their mind and cancel; the vendor and
+recipient can release, by presenting the code; nobody but the payer can
+cancel. Each gets its own 128-bit **link key**, carrying only its own
+capability:
+
+| Link | Can | Cannot |
+|---|---|---|
+| `payer` | view, **cancel** | release |
+| `recipient` | view, **release** | cancel |
+| `vendor` | view, **release** | cancel |
+| `proof` | view only | release or cancel |
+
+The server stores a hash of each key, never the key itself, and hands all four
+out exactly once, in the response that creates the order. Without this, the
+order id alone was a single shared credential: a vendor who has already handed
+over the goods — or anyone who was ever forwarded the link — could cancel the
+order before the code was shown and take the payment back. `test/capability.test.js`
+is the regression suite for that hole; every attack in it fails against the
+earlier, unscoped design.
+
 **[SECURITY.md](SECURITY.md)** carries the full threat model, the findings from
-attacking our own code, and a register of **49 security checks** — each one an
+attacking our own code, and a register of **56 security checks** — each one an
 automated test, each one listed with the file it lives in.
 
 ### Threat model, stated honestly
@@ -104,7 +133,7 @@ with `hodl_invoice`.
 
 **Working end to end on real Lightning nodes**, with an HTTP API, durable
 storage, a watcher that refunds undelivered orders by itself, and crash
-recovery that reconciles against the node on boot. 91 tests.
+recovery that reconciles against the node on boot. 113 tests.
 
 Both journeys — delivered and
 undelivered — run against a live two-node regtest network, and the channel
@@ -124,7 +153,7 @@ Next: the mobile-first web interface.
 ## Running it
 
 ```bash
-npm test                # 91 tests, no network, node or database required
+npm test                # 113 tests, no network, node or database required
 npm run regtest:up      # build a local 2-node Lightning network
 npm run demo            # watch both journeys run for real
 npm start               # the API on http://127.0.0.1:3000

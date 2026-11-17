@@ -13,17 +13,22 @@ import { extname, join, normalize, sep } from "node:path";
 import { EscrowError, STATE } from "../core/escrow.js";
 import { QuoteError } from "../core/money.js";
 import { SecretError, MODE_QR, MODE_TYPED } from "../core/secret.js";
+import { CAP, can } from "../core/capability.js";
 import {
   readJsonBody,
+  readLinkKey,
   requireString,
   requireUsdCents,
   requireOrderId,
   optionalEnum,
   RateLimiter,
   BadRequest,
+  Unauthorized,
+  Forbidden,
+  NotFound,
   TooManyRequests,
 } from "./guards.js";
-import { orderView, receiptView, eventsView } from "./views.js";
+import { orderView, receiptView, eventsView, linksView } from "./views.js";
 
 const SECURITY_HEADERS = {
   // Everything is served from this origin. No CDN, no inline script, no eval.
@@ -97,6 +102,11 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
       return send(res, 429, { error: error.message }, { "Retry-After": String(error.retryAfterSeconds) });
     }
     if (error instanceof BadRequest) return send(res, 400, { error: error.message, field: error.field });
+    if (error instanceof Unauthorized) {
+      return send(res, 401, { error: error.message }, { "WWW-Authenticate": 'Bearer realm="yazo"' });
+    }
+    if (error instanceof Forbidden) return send(res, 403, { error: error.message });
+    if (error instanceof NotFound) return send(res, 404, { error: error.message });
     if (error instanceof QuoteError || error instanceof SecretError) {
       return send(res, 400, { error: error.message });
     }
@@ -129,6 +139,35 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
     }
   }
 
+  /**
+   * The single gate every per-order route passes through.
+   *
+   * An order id on its own buys nothing: it names an order, it does not
+   * authorise anything. Authority is the link key, and each key carries only
+   * its role's capabilities - which is why a vendor cannot cancel the order he
+   * has already handed goods for, and the payer cannot release one he has not.
+   */
+  const authorise = async (req, url, rawId, capability) => {
+    const orderId = requireOrderId(rawId);
+    const presented = readLinkKey(req, url);
+    if (!presented) throw new Unauthorized();
+
+    const granted = await service.authorise(orderId, presented.key);
+    // Unknown order and wrong key are the same answer on purpose: otherwise
+    // this route reports which order ids exist.
+    if (!granted) throw new NotFound();
+
+    // A key in the query string is a key in somebody's logs. It reads, it
+    // never moves money, whatever role it belongs to.
+    if (presented.channel === "query" && capability !== CAP.VIEW) {
+      throw new Forbidden("send the link key as an Authorization header to do that");
+    }
+    if (!can(granted.role, capability)) {
+      throw new Forbidden(`a ${granted.role} link cannot ${capability} this order`);
+    }
+    return { ...granted, orderId };
+  };
+
   const routes = [
     {
       method: "GET",
@@ -157,6 +196,9 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
           paymentRequest: created.paymentRequest,
           secret: created.secret,
           secretNotice: "Give this to the recipient now. It is not stored and cannot be recovered.",
+          links: linksView(created.links),
+          linksNotice:
+            "One key per role, each carrying only that role's powers. Shown once, never stored.",
         });
       },
     },
@@ -164,31 +206,44 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
     {
       method: "GET",
       pattern: /^\/api\/orders\/([^/]+)$/,
-      handler: async (req, res, [id]) => {
-        const order = await service.store.get(requireOrderId(id));
-        if (!order) return send(res, 404, { error: "unknown order" });
-        send(res, 200, { order: orderView(order, { now: now() }) });
+      handler: async (req, res, [id], url) => {
+        const { order, role } = await authorise(req, url, id, CAP.VIEW);
+        send(res, 200, { order: orderView(order, { now: now() }), as: role });
       },
     },
 
     {
       method: "GET",
       pattern: /^\/api\/orders\/([^/]+)\/events$/,
-      handler: async (req, res, [id]) => {
-        const orderId = requireOrderId(id);
-        if (!(await service.store.get(orderId))) return send(res, 404, { error: "unknown order" });
+      handler: async (req, res, [id], url) => {
+        const { orderId } = await authorise(req, url, id, CAP.VIEW);
         const events = service.store.events ? await service.store.events(orderId) : [];
         send(res, 200, { events: eventsView(events) });
       },
     },
 
-    // The recipient presents their code.
+    // Proof that the money moved, safe to forward to anybody: the preimage and
+    // the hash it commits to, and nothing that could release another order.
+    {
+      method: "GET",
+      pattern: /^\/api\/orders\/([^/]+)\/receipt$/,
+      handler: async (req, res, [id], url) => {
+        const { orderId } = await authorise(req, url, id, CAP.VIEW);
+        send(res, 200, { receipt: receiptView(await service.receiptFor(orderId)) });
+      },
+    },
+
+    // The code is presented at the counter - by the vendor scanning it, or by
+    // the recipient's own phone. The payer's link cannot do this.
     {
       method: "POST",
       pattern: /^\/api\/orders\/([^/]+)\/release$/,
-      handler: async (req, res, [id]) => {
+      handler: async (req, res, [id], url) => {
         const orderId = requireOrderId(id);
+        // Rate limit before authorising, so a flood of guesses at the key
+        // itself is throttled on the same budget as guesses at the code.
         releases.check(`${clientKey(req)}:${orderId}`);
+        await authorise(req, url, id, CAP.RELEASE);
         const body = await readJsonBody(req);
         const code = requireString(body, "code", { max: 128 });
         const { order, receipt } = await service.release(orderId, code);
@@ -196,12 +251,13 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
       },
     },
 
+    // Only the payer may take their money back, and only before release.
     {
       method: "POST",
       pattern: /^\/api\/orders\/([^/]+)\/cancel$/,
-      handler: async (req, res, [id]) => {
-        const orderId = requireOrderId(id);
-        const order = await service.refund(orderId, "cancelled by payer");
+      handler: async (req, res, [id], url) => {
+        const { orderId, role } = await authorise(req, url, id, CAP.CANCEL);
+        const order = await service.refund(orderId, `cancelled by ${role}`);
         send(res, 200, { order: orderView(order, { now: now() }) });
       },
     },
@@ -211,10 +267,11 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
     {
       method: "GET",
       pattern: /^\/api\/orders\/([^/]+)\/stream$/,
-      handler: async (req, res, [id]) => {
-        const orderId = requireOrderId(id);
-        const existing = await service.store.get(orderId);
-        if (!existing) return send(res, 404, { error: "unknown order" });
+      handler: async (req, res, [id], url) => {
+        // EventSource cannot set headers, so this is the one route commonly
+        // reached with ?k=. It is view-only, which is exactly what the weaker
+        // channel is allowed to carry.
+        const { order: existing, orderId } = await authorise(req, url, id, CAP.VIEW);
         if (openStreams >= MAX_STREAMS) {
           return send(res, 503, { error: "too many open streams, retry shortly" }, { "Retry-After": "5" });
         }
@@ -268,12 +325,13 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
   ];
 
   const server = http.createServer(async (req, res) => {
-    let pathname;
+    let url;
     try {
-      pathname = new URL(req.url, "http://localhost").pathname;
+      url = new URL(req.url, "http://localhost");
     } catch {
       return send(res, 400, { error: "bad request" });
     }
+    const pathname = url.pathname;
 
     try {
       if (pathname.startsWith("/api/")) {
@@ -282,7 +340,7 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
           const match = pathname.match(route.pattern);
           if (!match) continue;
           if (req.method !== route.method) return send(res, 405, { error: "method not allowed" });
-          return await route.handler(req, res, match.slice(1));
+          return await route.handler(req, res, match.slice(1), url);
         }
         return send(res, 404, { error: "not found" });
       }

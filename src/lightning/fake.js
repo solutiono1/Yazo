@@ -46,6 +46,7 @@ export class FakeLnd {
       state: INVOICE_STATE.OPEN,
       sats,
       amtPaidSat: 0n,
+      rPreimage: null,
       memo,
       expirySeconds,
       cltvExpiry,
@@ -61,6 +62,8 @@ export class FakeLnd {
       state: invoice.state,
       amtPaidSat: invoice.amtPaidSat,
       settled: invoice.state === INVOICE_STATE.SETTLED,
+      // Like lnd: the preimage is known only once the invoice has settled.
+      rPreimage: invoice.state === INVOICE_STATE.SETTLED ? invoice.rPreimage : null,
     };
   }
 
@@ -80,6 +83,7 @@ export class FakeLnd {
       throw new LndError(`invoice is ${invoice.state}, cannot settle`, 400);
     }
     invoice.state = INVOICE_STATE.SETTLED;
+    invoice.rPreimage = Buffer.from(preimage);
     this.calls.push({ method: "settleInvoice", paymentHash: hex });
     this.#notify(hex);
   }

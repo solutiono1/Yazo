@@ -62,3 +62,18 @@ export function receiptView(receipt) {
 }
 
 export const eventsView = (events) => events.map((e) => ({ at: e.at, event: e.event, state: e.state }));
+
+/**
+ * The four link keys, returned once at creation and never again.
+ *
+ * `capabilities` travels with each key so the surface holding it can render
+ * only the buttons it is actually allowed to press - but it is a hint for the
+ * UI, never the check. The check is in the router, on every request.
+ */
+export const linksView = (links) =>
+  Object.fromEntries(
+    Object.entries(links ?? {}).map(([role, link]) => [
+      role,
+      { role: link.role, key: link.key, capabilities: link.capabilities },
+    ]),
+  );

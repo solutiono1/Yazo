@@ -83,24 +83,26 @@ test("open event streams are capped so they cannot exhaust the server", async ()
   const base = `http://127.0.0.1:${server.address().port}`;
 
   try {
-    const { order } = await service.createOrder({
+    const { order, links } = await service.createOrder({
       vendorId: "v",
       payerId: "p",
       recipientLabel: "Fatima",
       usdCents: 4_000n,
     });
+    // EventSource cannot set headers, so streams are reached with ?k=.
+    const url = `${base}/api/orders/${order.id}/stream?k=${links.proof.key}`;
 
     const controllers = [];
     const open = async () => {
       const controller = new AbortController();
       controllers.push(controller);
-      const res = await fetch(`${base}/api/orders/${order.id}/stream`, { signal: controller.signal });
+      const res = await fetch(url, { signal: controller.signal });
       return res.status;
     };
 
     assert.equal(await open(), 200);
     assert.equal(await open(), 200);
-    const third = await fetch(`${base}/api/orders/${order.id}/stream`);
+    const third = await fetch(url);
     assert.equal(third.status, 503, "the third stream must be refused");
     assert.ok(Number(third.headers.get("retry-after")) > 0);
     await third.body?.cancel();

@@ -105,7 +105,52 @@ went from up to 15 seconds (the sweep) to **217 ms**. The sweep remains the
 safety net: a subscription is an optimisation and is never what a refund
 depends on.
 
-### 4. Lesser items, also fixed
+### 4. The order id was the only credential, and every endpoint accepted it — *critical*
+
+Every route took the order id and nothing else. An id is not a secret — it
+travels in URLs, screenshots, forwarded messages — so in effect anyone who had
+ever seen the link held every power the order had. The failure that matters
+is not disclosure of the order's existence; it is that `POST /cancel` had no
+notion of who was asking.
+
+Concretely: the vendor hands over the rice. Before the recipient's code is
+presented, anyone holding the link — the vendor himself, someone the payer
+forwarded it to, a screenshot in a group chat — can cancel the order and send
+the payer's money back. The vendor loses the goods **and** the payment, with
+no way to tell the difference afterwards between a genuine change of heart and
+theft.
+
+**Fixed** with role-scoped link keys (`src/core/capability.js`). Order
+creation now mints four independent 128-bit keys — `payer`, `recipient`,
+`vendor`, `proof` — and each is authorised for only its own capability:
+
+| Link | Can | Cannot |
+|---|---|---|
+| `payer` | view, cancel | release |
+| `recipient` | view, release | cancel |
+| `vendor` | view, release | cancel |
+| `proof` | view | release, cancel |
+
+The server stores **only `sha256` of each key**, in a fixed-size, timing-safe
+comparison that checks every role on every call rather than returning on the
+first match — the same stance already taken with the release preimage. The
+keys themselves exist exactly once, in the order-creation response, and the
+order id reverts to being what it always should have been: an identifier, not
+a credential.
+
+A link key may also travel as `?k=` for clients that cannot set a header
+(`EventSource`), but that channel is capped to `view` regardless of which
+role the key belongs to — a URL ends up in proxy logs, browser history and
+`Referer` headers, and none of those should be able to move money. An unknown
+order and a wrong key return the identical `404`, so the endpoint cannot be
+used to discover which order ids are real.
+
+Tests in `test/capability.test.js`, including one that runs the entire attack
+suite against the old, unscoped router and confirms every one of them fails
+there — the proof that these are regression tests for a real hole, not an
+exercise.
+
+### 5. Lesser items, also fixed
 
 - Order ids were time-based and sequential, letting anyone walk the whole book.
   Now 128 bits of randomness.
@@ -117,7 +162,7 @@ depends on.
 - `.gitignore` used `regtest/`, which matched *any* directory of that name and
   silently excluded `scripts/regtest/`. Anchored to the repo root.
 
-## The register — 49 checks
+## The register — 56 checks
 
 Every line is an automated test. The count is the number of checks, not a
 marketing number; if a check is removed, this table shrinks.
@@ -196,25 +241,37 @@ marketing number; if a check is removed, this table shrinks.
 | 38 | Paid-while-we-were-down is repaired on boot | `watcher.test.js` |
 | 39 | One unreadable order does not stop recovery | `watcher.test.js` |
 
+### Authorisation — role-scoped links (7)
+
+| # | Check | Where |
+|---|---|---|
+| 40 | A vendor link cannot cancel an order it has already fulfilled | `capability.test.js` |
+| 41 | No route answers for an order id with no link key presented | `capability.test.js` |
+| 42 | Every link is refused the one capability it does not hold | `capability.test.js` |
+| 43 | A key from another order resolves to nothing, and looks identical to an unknown order | `capability.test.js` |
+| 44 | A query-string key can view but can never release or cancel | `capability.test.js` |
+| 45 | A key is returned once, at creation, and never again in any later response | `capability.test.js` |
+| 46 | The store holds a digest of each key, never the key itself | `capability.test.js` |
+
 ### HTTP surface (7)
 
 | # | Check | Where |
 |---|---|---|
-| 40 | CSP and hardening headers on every response | `http.test.js` |
-| 41 | Input is rejected, never coerced | `http.test.js` |
-| 42 | Oversized bodies are refused | `http.test.js` |
-| 43 | Path traversal cannot escape the public directory | `http.test.js` |
-| 44 | Order ids that are not ours are rejected | `http.test.js` |
-| 45 | Internal errors never leak details | `http.test.js` |
-| 46 | Open event streams are capped | `hardening.test.js` |
+| 47 | CSP and hardening headers on every response | `http.test.js` |
+| 48 | Input is rejected, never coerced | `http.test.js` |
+| 49 | Oversized bodies are refused | `http.test.js` |
+| 50 | Path traversal cannot escape the public directory | `http.test.js` |
+| 51 | Order ids that are not ours are rejected | `http.test.js` |
+| 52 | Internal errors never leak details | `http.test.js` |
+| 53 | Open event streams are capped | `hardening.test.js` |
 
 ### Live payment detection (3)
 
 | # | Check | Where |
 |---|---|---|
-| 47 | A payment is seen the moment it lands, with no sweep | `hardening.test.js` |
-| 48 | A subscription is dropped once an order is terminal | `hardening.test.js` |
-| 49 | The service still works against a node with no subscription support | `hardening.test.js` |
+| 54 | A payment is seen the moment it lands, with no sweep | `hardening.test.js` |
+| 55 | A subscription is dropped once an order is terminal | `hardening.test.js` |
+| 56 | The service still works against a node with no subscription support | `hardening.test.js` |
 
 ## Operational notes
 
