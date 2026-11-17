@@ -98,21 +98,42 @@ with `hodl_invoice`.
 
 ## Status
 
-Working: the escrow engine — money math, secret derivation, state machine —
-with 36 tests including the adversarial suite.
+**Working end to end on real Lightning nodes.** Both journeys — delivered and
+undelivered — run against a live two-node regtest network, and the channel
+balances settle to the sat:
 
-Next: the Lightning adapter against a local regtest node, then the mobile-first
-web UI.
+```
+delivered order : RELEASED  (vendor paid 42,106 sats)
+undelivered one : REFUNDED  (payer kept 26,316 sats)
+channel balance : alice 2,456,950 sat | bob 2,542,106 sat
+```
+
+Alice began with 2,499,056 sat and ends 42,106 lighter — exactly the delivered
+order, and nothing else. The undelivered order moved no money at all.
+
+Next: the mobile-first web interface.
 
 ## Running it
 
 ```bash
-npm test              # 36 tests, no network or database required
+npm test                        # 51 tests, no network or database required
+node scripts/regtest/up.mjs     # build a local 2-node Lightning network
+node scripts/demo.mjs           # watch both journeys run for real
 ```
 
-The core is pure functions over plain objects: no network, no database, no
-clock of its own. The Lightning layer is a thin adapter that reacts to its
-transitions.
+`npm test` needs nothing but Node — the core is pure functions over plain
+objects, and `src/lightning/fake.js` models everything lnd enforces, so the
+whole escrow flow is verified with no node, no chain and no network.
+
+The harness expects `lnd` and `btcd` binaries; point `LND_BIN` and `BTCD_BIN`
+at them, or edit `scripts/regtest/config.mjs`. Add `--fresh` to `up.mjs` to
+wipe and rebuild the network from nothing.
+
+### Least privilege is real here
+
+Yazo authenticates to lnd with `invoice.macaroon`, which can create and settle
+invoices and nothing else. It cannot send funds, and it cannot even call
+`getinfo` — the demo prints that refusal rather than hiding it.
 
 ## Repository hygiene
 

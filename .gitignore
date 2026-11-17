@@ -18,8 +18,8 @@ channel.backup
 channel.db
 .lnd/
 .btcd/
-.yazo-regtest/
-regtest/
+/.yazo-regtest/
+/regtest/
 simnet/
 chaindata/
 
@@ -62,3 +62,6 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# Local regtest network data (never commit chain or node state)
+/.regtest/
