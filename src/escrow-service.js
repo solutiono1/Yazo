@@ -55,7 +55,14 @@ export class EscrowService {
    * @param {() => number} [deps.now] clock, injectable for tests
    * @param {() => Promise<bigint>} deps.btcUsd price oracle, whole USD per BTC
    */
-  constructor({ node, store = new MemoryStore(), now = () => Date.now(), btcUsd, idFactory = defaultIdFactory }) {
+  constructor({
+    node,
+    store = new MemoryStore(),
+    now = () => Date.now(),
+    btcUsd,
+    idFactory = defaultIdFactory,
+    onError,
+  }) {
     if (!node) throw new EscrowError("a Lightning node is required");
     if (typeof btcUsd !== "function") throw new EscrowError("a btcUsd price source is required");
     this.node = node;
@@ -63,6 +70,52 @@ export class EscrowService {
     this.now = now;
     this.btcUsd = btcUsd;
     this.idFactory = idFactory;
+    this.onError = onError;
+  }
+
+  /**
+   * Rebuild our view of the world from the node after a restart or crash.
+   *
+   * The node is the source of truth for money. If we died between settling an
+   * invoice and writing the row, the node knows and we do not - so on boot we
+   * ask it about every order that still has money at stake, and correct
+   * ourselves. Without this, a crash at the wrong moment leaves a vendor
+   * believing he was not paid when he was.
+   */
+  async reconcile() {
+    const corrections = [];
+    const live = this.store.live ? await this.store.live() : await this.store.all();
+    for (const order of live) {
+      let invoice;
+      try {
+        invoice = await this.node.lookupInvoice(order.paymentHash);
+      } catch (e) {
+        this.onError?.(e, order.id);
+        continue;
+      }
+
+      // The node settled it but we never recorded that.
+      if (invoice.state === INVOICE_STATE.SETTLED && order.state !== STATE.RELEASED) {
+        const repaired = { ...order, state: STATE.RELEASED, settledAt: order.settledAt ?? this.now() };
+        await this.store.put(Object.freeze(repaired));
+        corrections.push({ id: order.id, from: order.state, to: STATE.RELEASED });
+        continue;
+      }
+      // The node cancelled it but we never recorded that.
+      if (invoice.state === INVOICE_STATE.CANCELED && order.state !== STATE.REFUNDED) {
+        const repaired = { ...order, state: STATE.REFUNDED, settledAt: order.settledAt ?? this.now() };
+        await this.store.put(Object.freeze(repaired));
+        corrections.push({ id: order.id, from: order.state, to: STATE.REFUNDED });
+        continue;
+      }
+      // Payment arrived while we were down.
+      if (invoice.state === INVOICE_STATE.ACCEPTED && order.state === STATE.AWAITING_PAYMENT) {
+        const locked = apply(order, EVENT.PAYMENT_LOCKED, this.now(), { amountSats: invoice.amtPaidSat });
+        await this.store.put(locked);
+        corrections.push({ id: order.id, from: order.state, to: STATE.LOCKED });
+      }
+    }
+    return corrections;
   }
 
   /**
@@ -167,9 +220,17 @@ export class EscrowService {
   async expireDueHolds() {
     const now = this.now();
     const refunded = [];
-    for (const order of await this.store.all()) {
+    // Prefer the store's indexed view of orders that still have money at
+    // stake; fall back to a full scan for stores that do not provide one.
+    const candidates = this.store.live ? await this.store.live() : await this.store.all();
+    for (const order of candidates) {
       if (isRefundDue(order, now)) {
-        refunded.push(await this.refund(order.id, "hold window elapsed"));
+        try {
+          refunded.push(await this.refund(order.id, "hold window elapsed"));
+        } catch (e) {
+          // One stuck order must never stop the others from being refunded.
+          this.onError?.(e, order.id);
+        }
       }
     }
     return refunded;
