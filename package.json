@@ -7,9 +7,16 @@
   "license": "MIT",
   "author": "solutiono1",
   "scripts": {
+    "start": "node src/main.js",
+    "dev": "node --watch src/main.js",
     "test": "node --test test/",
     "test:watch": "node --test --watch test/",
+    "regtest:up": "node scripts/regtest/up.mjs",
+    "regtest:fresh": "node scripts/regtest/up.mjs --fresh",
+    "demo": "node scripts/demo.mjs",
     "audit:staged": "bash scripts/audit-staged.sh"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }

@@ -12,6 +12,7 @@
 // node refused - leaves us telling a vendor he was paid when he was not. If
 // step 3 ever fails, the node still holds the truth and `syncFromNode` restores
 // our record from it.
+import { randomBytes } from "node:crypto";
 import {
   createOrder,
   apply,
@@ -44,8 +45,12 @@ export class MemoryStore {
   }
 }
 
-let counter = 0;
-const defaultIdFactory = () => `ord_${Date.now().toString(36)}_${(counter += 1).toString(36)}`;
+// Order ids are the capability that reaches an order: whoever holds the link
+// can see it, and the recipient can present a code against it. A sequential or
+// time-based id would let anyone walk the whole book, so ids are 128 bits of
+// randomness. Guessing one is not a realistic attack; guessing is not the
+// weakness we are defending against either, but enumeration would be.
+const defaultIdFactory = () => `ord_${randomBytes(16).toString("base64url")}`;
 
 export class EscrowService {
   /**

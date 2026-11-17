@@ -20,6 +20,7 @@ export class FakeLnd {
   constructor() {
     /** @type {Map<string, object>} keyed by payment hash hex */
     this.invoices = new Map();
+    this.watchers = new Map(); // payment hash hex -> Set of listeners
     this.calls = []; // call log, so tests can assert what was asked of the node
   }
 
@@ -80,6 +81,7 @@ export class FakeLnd {
     }
     invoice.state = INVOICE_STATE.SETTLED;
     this.calls.push({ method: "settleInvoice", paymentHash: hex });
+    this.#notify(hex);
   }
 
   async cancelInvoice(paymentHash) {
@@ -90,10 +92,32 @@ export class FakeLnd {
     }
     invoice.state = INVOICE_STATE.CANCELED;
     this.calls.push({ method: "cancelInvoice", paymentHash: hex });
+    this.#notify(hex);
   }
 
   async getInfo() {
     return { version: "fake-lnd", synced_to_chain: true, block_height: 1 };
+  }
+
+  /** Mirrors LndClient.subscribeInvoice so callers behave identically. */
+  subscribeInvoice(paymentHash, onUpdate) {
+    const hex = paymentHash.toString("hex");
+    const listeners = this.watchers.get(hex) ?? new Set();
+    listeners.add(onUpdate);
+    this.watchers.set(hex, listeners);
+    return () => listeners.delete(onUpdate);
+  }
+
+  #notify(hex) {
+    const invoice = this.invoices.get(hex);
+    if (!invoice) return;
+    for (const listener of this.watchers.get(hex) ?? []) {
+      listener({
+        state: invoice.state,
+        amtPaidSat: invoice.amtPaidSat,
+        settled: invoice.state === INVOICE_STATE.SETTLED,
+      });
+    }
   }
 
   // ---------------------------------------------------------------- test aid --
@@ -105,6 +129,7 @@ export class FakeLnd {
     }
     invoice.state = INVOICE_STATE.ACCEPTED;
     invoice.amtPaidSat = sats ?? invoice.sats;
+    this.#notify(paymentHash.toString("hex"));
     return invoice;
   }
 }

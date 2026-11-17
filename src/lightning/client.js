@@ -145,4 +145,65 @@ export class LndClient {
   async getInfo() {
     return this.#request("GET", "/v1/getinfo");
   }
+
+  /**
+   * Watch one invoice and be told the moment its state changes.
+   *
+   * Polling a node every few seconds is both wasteful and slow; the payer
+   * deserves to see "locked" the instant their HTLC lands. The watcher still
+   * sweeps on a timer as a safety net, because a dropped stream must never be
+   * the reason a refund does not happen.
+   *
+   * @returns {() => void} call to stop watching
+   */
+  subscribeInvoice(paymentHash, onUpdate) {
+    const rHash = paymentHash.toString("base64url");
+    let stopped = false;
+    const req = https.request(
+      {
+        host: this.host,
+        port: this.port,
+        path: `/v2/invoices/subscribe/${rHash}`,
+        method: "GET",
+        ca: this.ca,
+        checkServerIdentity: () => undefined,
+        headers: { "Grpc-Metadata-macaroon": this.macaroon },
+      },
+      (res) => {
+        res.setEncoding("utf8");
+        let buffered = "";
+        res.on("data", (chunk) => {
+          buffered += chunk;
+          let nl;
+          while ((nl = buffered.indexOf("\n")) >= 0) {
+            const line = buffered.slice(0, nl).trim();
+            buffered = buffered.slice(nl + 1);
+            if (!line || stopped) continue;
+            try {
+              const frame = JSON.parse(line);
+              const invoice = frame.result ?? frame;
+              if (invoice?.state) {
+                onUpdate({
+                  state: invoice.state,
+                  amtPaidSat: BigInt(invoice.amt_paid_sat ?? "0"),
+                  settled: Boolean(invoice.settled),
+                });
+              }
+            } catch {
+              /* partial frame, wait for more */
+            }
+          }
+        });
+      },
+    );
+    req.on("error", (e) => {
+      if (!stopped) onUpdate({ error: e.message });
+    });
+    req.end();
+
+    return () => {
+      stopped = true;
+      req.destroy();
+    };
+  }
 }
