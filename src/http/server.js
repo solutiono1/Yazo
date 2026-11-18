@@ -51,6 +51,12 @@ const MIME = {
   ".js": "text/javascript; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  // nosniff (SECURITY_HEADERS below) means a missing entry here is not a
+  // cosmetic gap: the browser refuses to render the file as an image rather
+  // than guessing, so a photo with no MIME entry fails silently.
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
   ".webmanifest": "application/manifest+json",
   ".woff2": "font/woff2",
 };

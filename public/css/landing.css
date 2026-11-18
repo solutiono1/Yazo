@@ -197,15 +197,30 @@
 
 .hero-glow {
   position: absolute;
-  top: -180px;
-  right: -120px;
-  width: 560px;
-  height: 560px;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--gold) 28%, transparent) 0%, transparent 70%);
-  filter: blur(10px);
-  pointer-events: none;
+  inset: 0;
   z-index: 0;
+  pointer-events: none;
+  /* A real photo (credit: Davies Designs Studio, Unsplash License), not a
+     synthetic gradient - tinted toward the brand gold and faded out at the
+     bottom so it reads as atmosphere behind the hero text, not a banner
+     image competing with it, and dissolves into the page before the
+     dashboard screenshot begins. */
+  background-image: linear-gradient(to bottom, transparent 0%, var(--paper) 78%),
+    linear-gradient(140deg, color-mix(in srgb, var(--gold) 55%, transparent) 0%, transparent 55%),
+    url("/images/sky.jpg");
+  background-size: cover;
+  background-position: center 30%;
+  background-repeat: no-repeat;
+  opacity: 0.8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .hero-glow {
+    opacity: 0.35;
+  }
+}
+:root[data-theme="dark"] .hero-glow {
+  opacity: 0.35;
 }
 
 .hero-inner {
@@ -446,6 +461,50 @@
   margin-top: var(--sp-1);
 }
 
+/* -------------------------------------------------------------- market shot -- */
+
+.market-shot {
+  margin: var(--sp-12) 0 0;
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.market-shot img {
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  object-fit: cover;
+  object-position: center 35%;
+  display: block;
+  /* The real photo is vivid and busy on purpose - it's a real market, not
+     a styled shoot. Toning the saturation down and tinting toward the
+     brand palette keeps it from fighting the calm type around it. */
+  filter: saturate(0.75) sepia(0.12);
+}
+
+.market-shot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--ink) 55%, transparent) 0%,
+    transparent 45%
+  ),
+    linear-gradient(135deg, color-mix(in srgb, var(--gold) 18%, transparent) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.market-shot figcaption {
+  position: absolute;
+  left: var(--sp-5);
+  bottom: var(--sp-4);
+  color: var(--paper);
+  font-size: var(--caption);
+  opacity: 0.85;
+}
+
 /* ------------------------------------------------------------ steps -- */
 
 .steps {
@@ -469,6 +528,12 @@
   border-radius: var(--radius-lg);
   padding: var(--sp-6);
   position: relative;
+  transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+
+.step:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card);
 }
 
 .step-icon-wrap {
@@ -596,6 +661,11 @@
   padding: var(--sp-8);
   display: grid;
   gap: var(--sp-8);
+  transition: border-color var(--dur-base) var(--ease-out);
+}
+
+.security-card:hover {
+  border-color: var(--gold);
 }
 
 @media (min-width: 820px) {
@@ -667,6 +737,11 @@
   text-align: left;
   list-style: none;
   cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.faq-q:hover {
+  background: var(--paper-raised);
 }
 
 .faq-q::-webkit-details-marker {

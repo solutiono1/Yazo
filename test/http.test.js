@@ -194,6 +194,43 @@ test("path traversal cannot escape the public directory", async () => {
   }
 });
 
+test("every static asset extension actually in use has a MIME entry", async () => {
+  // nosniff means a missing entry is not cosmetic: the browser refuses to
+  // render the file as its real type rather than guessing one. This check
+  // walks the real public/ directory so a new file format added there
+  // without updating MIME fails a test instead of failing silently in a
+  // browser.
+  const h = await harness();
+  try {
+    const { readdir } = await import("node:fs/promises");
+    const { extname, join } = await import("node:path");
+    const files = [];
+    async function walk(dir) {
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) await walk(full);
+        else files.push(full);
+      }
+    }
+    await walk("public");
+    const seen = new Set();
+    for (const file of files) {
+      const ext = extname(file);
+      if (!ext || seen.has(ext)) continue;
+      seen.add(ext);
+      const res = await fetch(`${h.base}/${file.replace(/^public[\\/]/, "").replace(/\\/g, "/")}`);
+      assert.equal(res.status, 200, `${file} did not serve`);
+      assert.notEqual(
+        res.headers.get("content-type"),
+        "application/octet-stream",
+        `${ext} has no MIME entry - nosniff will block it from rendering`,
+      );
+    }
+  } finally {
+    h.close();
+  }
+});
+
 test("a wrong code is refused and the money stays held", async () => {
   const h = await harness();
   try {
