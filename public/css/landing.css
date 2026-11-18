@@ -450,25 +450,45 @@
 
 .step {
   background: var(--paper);
+  /* This card sits inside .section-dark, which sets white text for the
+     whole section. Without resetting it here, a white card ends up with
+     white text on top of it - invisible, not just low-contrast. */
+  color: var(--ink);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   padding: var(--sp-6);
   position: relative;
 }
 
+.step-icon-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  margin-bottom: var(--sp-4);
+}
+
+.step-icon {
+  display: block;
+  width: 48px;
+  height: 48px;
+}
+
 .step .n {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
   font-family: var(--font-display);
-  font-size: var(--caption);
-  color: var(--gold-ink);
-  background: var(--gold-soft);
-  width: 28px;
-  height: 28px;
+  font-size: 0.6875rem;
+  color: var(--paper);
+  background: var(--ink);
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--paper);
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  margin-bottom: var(--sp-4);
 }
 
 .step h3 {
@@ -703,61 +723,197 @@
   justify-content: center;
 }
 
+/* --------------------------------------------------------- disclaimer bar -- */
+
+.disclaimer-bar {
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  padding-block: var(--sp-4);
+}
+
+.disclaimer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-8);
+  flex-wrap: wrap;
+  font-size: var(--caption);
+  color: var(--ink-muted);
+}
+
+.disclaimer-inner p {
+  max-width: 62ch;
+}
+
+.disclaimer-side {
+  white-space: nowrap;
+}
+
 /* ------------------------------------------------------------- footer -- */
 
 .footer {
-  border-top: 1px solid var(--hairline);
-  padding-block: var(--sp-12);
+  padding-top: var(--sp-16);
+  position: relative;
+  overflow: hidden;
 }
 
-.footer-top {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
   gap: var(--sp-8);
+  padding-bottom: var(--sp-12);
 }
 
-.footer-security {
+@media (max-width: 720px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.footer-brand {
+  grid-column: span 1;
+}
+
+@media (max-width: 720px) {
+  .footer-brand {
+    grid-column: 1 / -1;
+  }
+}
+
+.footer-wordmark {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  margin-bottom: var(--sp-3);
+}
+
+.footer-tagline {
+  font-size: var(--body-sm);
+  color: var(--ink-soft);
+  max-width: 32ch;
+  line-height: 1.55;
+  margin-bottom: var(--sp-5);
+}
+
+.footer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--hairline);
+  font-size: var(--caption);
+  font-weight: 600;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+
+.footer-pill svg {
+  width: 15px;
+  height: 15px;
+}
+
+.footer-pill:hover {
+  border-color: var(--gold);
+  background: var(--paper-raised);
+}
+
+.footer-col {
+  display: grid;
+  gap: var(--sp-3);
+  align-content: start;
+}
+
+.footer-col-head {
+  font-size: var(--caption);
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--sp-1);
+}
+
+.footer-col a {
+  font-size: var(--body-sm);
+  color: var(--ink-soft);
+  transition: color var(--dur-fast) var(--ease-out);
+  width: fit-content;
+}
+
+.footer-col a:hover {
+  color: var(--ink);
+}
+
+.footer-col a.is-soon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--ink-muted);
+  cursor: default;
+  pointer-events: none;
+}
+
+.soon {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--paper-sunken);
+  color: var(--ink-muted);
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-full);
+}
+
+.footer-credit {
+  border-top: 1px solid var(--hairline);
+  padding-block: var(--sp-6);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-6);
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+
+.footer-audit-credit {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
   font-size: var(--caption);
   color: var(--ink-soft);
-  padding: var(--sp-2) var(--sp-4);
-  border-radius: var(--radius-full);
-  background: var(--paper-raised);
-  border: 1px solid var(--hairline);
-  transition: border-color var(--dur-fast) var(--ease-out);
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
-.footer-security:hover {
-  border-color: var(--gold);
-}
-
-.footer-security .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--state-released);
+.footer-audit-credit svg {
+  width: 16px;
+  height: 16px;
+  color: var(--state-released);
   flex-shrink: 0;
 }
 
-.footer-links {
-  display: flex;
-  gap: var(--sp-6);
-  flex-wrap: wrap;
+.footer-audit-credit:hover {
+  color: var(--ink);
+}
+
+.footer-copy {
   font-size: var(--caption);
   color: var(--ink-muted);
 }
 
-.footer-legal {
-  margin-top: var(--sp-8);
-  padding-top: var(--sp-8);
-  border-top: 1px solid var(--hairline);
-  font-size: var(--caption);
-  color: var(--ink-muted);
-  line-height: 1.7;
-  max-width: 68ch;
+.footer-giant {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  font-size: clamp(6rem, 22vw, 14rem);
+  line-height: 0.8;
+  color: var(--paper-sunken);
+  text-align: center;
+  margin: 0;
+  user-select: none;
+  /* Bleeds past the bottom edge on purpose - a closing signature, not
+     content meant to be fully read. */
+  transform: translateY(18%);
 }
 
 /* ------------------------------------------------------- reveal on scroll -- */

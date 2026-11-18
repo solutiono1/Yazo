@@ -105,22 +105,22 @@
 
         <div class="steps" data-reveal-group>
           <div class="step">
-            <div class="n">1</div>
+            <div class="step-icon-wrap"><img class="step-icon" src="/images/icons/order.svg" width="48" height="48" alt="" /><span class="n">1</span></div>
             <h3>Order</h3>
             <p>Pick an amount and who it's for. Yazo issues a Lightning hold invoice for that exact sum.</p>
           </div>
           <div class="step">
-            <div class="n">2</div>
+            <div class="step-icon-wrap"><img class="step-icon" src="/images/icons/hold.svg" width="48" height="48" alt="" /><span class="n">2</span></div>
             <h3>Pay</h3>
             <p>You pay the invoice. The network holds the payment. Not spent. Not released. Just held.</p>
           </div>
           <div class="step">
-            <div class="n">3</div>
+            <div class="step-icon-wrap"><img class="step-icon" src="/images/icons/code.svg" width="48" height="48" alt="" /><span class="n">3</span></div>
             <h3>Show the code</h3>
             <p>The recipient gets a one-time code. It only gets shown once the goods are actually in hand.</p>
           </div>
           <div class="step">
-            <div class="n">4</div>
+            <div class="step-icon-wrap"><img class="step-icon" src="/images/icons/released.svg" width="48" height="48" alt="" /><span class="n">4</span></div>
             <h3>Released</h3>
             <p>The code unlocks the hold. The vendor is paid in seconds. No waiting. No middleman.</p>
           </div>
@@ -226,26 +226,66 @@
 
   </main>
 
+  <div class="disclaimer-bar">
+    <div class="wrap disclaimer-inner">
+      <p>
+        Testnet only. Test sats have no value. No cookies, no accounts — the
+        only record kept of you is the order you create, identified by a
+        link, not an identity.
+      </p>
+      <p class="disclaimer-side">Built for the Dakar Bitcoin Hack by BTrust.</p>
+    </div>
+  </div>
+
   <footer class="footer">
     <div class="wrap">
-      <div class="footer-top">
-        <a class="footer-security" href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md" rel="noopener">
-          <span class="dot" aria-hidden="true"></span> Security · 56 automated checks
-        </a>
-        <nav class="footer-links">
-          <a href="https://github.com/solutiono1/Yazo" rel="noopener">GitHub</a>
-          <a href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md" rel="noopener">Security</a>
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <p class="wordmark footer-wordmark">Yazo</p>
+          <p class="footer-tagline">
+            Send the goods, not the cash. A payment that waits for proof,
+            on Bitcoin Lightning.
+          </p>
+          <a class="footer-pill" href="https://github.com/solutiono1/Yazo" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83.09-.65.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.93 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.3 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.83-2.34 4.67-4.57 4.92.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
+            View the code
+          </a>
+        </div>
+
+        <nav class="footer-col">
+          <p class="footer-col-head">Product</p>
+          <a href="#how">How it works</a>
+          <a href="#guarantee">The guarantee</a>
+          <a href="#security">Security</a>
+        </nav>
+
+        <nav class="footer-col">
+          <p class="footer-col-head">Security</p>
+          <a href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md" rel="noopener">Audit register — 56 checks</a>
+          <a href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md#threat-model" rel="noopener">Threat model</a>
+          <a href="https://github.com/solutiono1/Yazo/issues" rel="noopener">Report a vulnerability</a>
+        </nav>
+
+        <nav class="footer-col">
+          <p class="footer-col-head">More</p>
           <a href="https://github.com/solutiono1/Yazo/blob/main/README.md" rel="noopener">README</a>
+          <a href="#" class="is-soon" aria-disabled="true">Terms <span class="soon">Soon</span></a>
+          <a href="#" class="is-soon" aria-disabled="true">Privacy <span class="soon">Soon</span></a>
         </nav>
       </div>
-      <p class="footer-legal">
-        Yazo is a hackathon build currently running on Lightning's test
-        network. No real funds move through this demo yet. It sets no
-        cookies and asks for no account; the only record kept of you is the
-        order you create, identified by a link, not an identity. Built for
-        the Dakar Bitcoin Hack by BTrust.
-      </p>
+
+      <div class="footer-credit">
+        <a class="footer-audit-credit" href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3 4 6v5c0 5.5 8 9 8 9s8-3.5 8-9V6z"/>
+          </svg>
+          Security review: 56 automated checks, by Yazo's own founder and solo auditor
+        </a>
+        <p class="footer-copy">&copy; 2026 Yazo. Beta software — not investment, legal or custodial advice.</p>
+      </div>
     </div>
+
+    <p class="footer-giant" aria-hidden="true">Yazo</p>
   </footer>
 
   <script src="/js/motion.js"></script>
