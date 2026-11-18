@@ -23,14 +23,6 @@
   backdrop.addEventListener("click", closeSidebar);
   sidebar.querySelectorAll("a").forEach((a) => a.addEventListener("click", closeSidebar));
 
-  const keyGate = document.getElementById("keyGate");
-  const keyInput = document.getElementById("keyInput");
-  const existingKeyForm = document.getElementById("existingKeyForm");
-  const createShopBtn = document.getElementById("createShopBtn");
-  const newKeyReveal = document.getElementById("newKeyReveal");
-  const newKeyText = document.getElementById("newKeyText");
-  const continueToDashboard = document.getElementById("continueToDashboard");
-  const keyGateError = document.getElementById("keyGateError");
   const dashboardRoot = document.getElementById("dashboardRoot");
   const vendorFoot = document.getElementById("vendorFoot");
   const vendorIdLabel = document.getElementById("vendorIdLabel");
@@ -171,16 +163,13 @@
     return res.json();
   }
 
-  function showError(message) {
-    keyGateError.textContent = message;
-    keyGateError.hidden = false;
-  }
-
+  // Creating a shop or signing back into one lives on its own page now -
+  // this script only ever has a key already in hand (from the URL
+  // fragment or from storage) or sends the browser there to get one.
   async function boot(merchantKey) {
     try {
       const { vendorId, orders } = await loadOrders(merchantKey);
       rememberKey(merchantKey);
-      keyGate.hidden = true;
       dashboardRoot.hidden = false;
       vendorFoot.hidden = false;
       vendorIdLabel.textContent = vendorId;
@@ -189,11 +178,7 @@
       renderOrders(orders);
     } catch {
       forgetKey();
-      keyGate.hidden = false;
-      dashboardRoot.hidden = true;
-      newKeyReveal.hidden = true;
-      location.hash = "";
-      showError("That key didn't work. Check it was pasted in full, or create a new shop below.");
+      location.href = "/onboarding.html?invalid=1";
     }
   }
 
@@ -207,52 +192,12 @@
   } else if (fromMemory) {
     location.hash = fromMemory;
     boot(fromMemory);
+  } else {
+    location.href = "/onboarding.html";
   }
-
-  // Returning vendor: paste the key they already have.
-  existingKeyForm.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const value = keyInput.value.trim();
-    if (!value) return;
-    keyGateError.hidden = true;
-    location.hash = value;
-    boot(value);
-  });
-
-  // New vendor: no form, no password - just mint a key. This is the entire
-  // "sign-up" flow, because there is nothing else that needs collecting.
-  let mintedKey = null;
-  createShopBtn.addEventListener("click", async () => {
-    createShopBtn.disabled = true;
-    createShopBtn.textContent = "Creating...";
-    keyGateError.hidden = true;
-    try {
-      const res = await fetch("/api/merchants", { method: "POST" });
-      if (!res.ok) throw new Error(String(res.status));
-      const { merchantKey } = await res.json();
-      mintedKey = merchantKey;
-      newKeyText.textContent = merchantKey;
-      newKeyReveal.hidden = false;
-      createShopBtn.hidden = true;
-    } catch {
-      showError("Couldn't create a shop just now - the server may be unreachable. Try again in a moment.");
-      createShopBtn.disabled = false;
-      createShopBtn.textContent = "Create your shop - it's free";
-    }
-  });
-
-  continueToDashboard.addEventListener("click", () => {
-    if (!mintedKey) return;
-    location.hash = mintedKey;
-    boot(mintedKey);
-  });
 
   document.getElementById("switchShopBtn").addEventListener("click", () => {
     forgetKey();
-    location.hash = "";
-    keyGate.hidden = false;
-    dashboardRoot.hidden = true;
-    vendorFoot.hidden = true;
-    keyInput.value = "";
+    location.href = "/onboarding.html";
   });
 })();

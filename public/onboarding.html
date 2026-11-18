@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yazo</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/css/fonts.css" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/buttons.css" />
+  <link rel="stylesheet" href="/css/onboarding.css" />
+</head>
+<body>
+  <div class="onboard">
+    <div class="onboard-visual" aria-hidden="true">
+      <img
+        src="/images/lagos.jpg"
+        width="2400"
+        height="3600"
+        alt=""
+      />
+      <div class="onboard-visual-overlay">
+        <a href="/" class="onboard-wordmark"><img src="/favicon.svg" width="28" height="28" alt="" />Yazo</a>
+        <p class="onboard-visual-tag">
+          Lagos, evening. Somewhere in this city, a payment is already
+          locked - waiting on nothing but proof.
+        </p>
+      </div>
+    </div>
+
+    <div class="onboard-panel">
+      <div class="onboard-panel-inner">
+        <img class="key-gate-mark" src="/favicon.svg" width="40" height="40" alt="" />
+        <h1>Your shop on Yazo</h1>
+        <p>
+          No sign-up form, no password. Your key to this dashboard - not an
+          account - and it's yours the moment it's created.
+        </p>
+
+        <button id="createShopBtn" class="btn btn-primary key-gate-btn" type="button">
+          Create your shop - it's free
+        </button>
+
+        <div class="key-gate-divider"><span>or, if you already have a key</span></div>
+
+        <form id="existingKeyForm" class="key-gate-existing">
+          <input id="keyInput" type="text" placeholder="Paste your yzm_... key" autocomplete="off" spellcheck="false" />
+          <button type="submit" class="btn btn-ghost btn-sm">Continue</button>
+        </form>
+
+        <div id="newKeyReveal" class="key-gate-reveal" hidden>
+          <p class="key-gate-reveal-label">This is shown once. Save it - it's the only way back in.</p>
+          <div class="key-gate-reveal-row">
+            <code id="newKeyText"></code>
+            <button id="copyKeyBtn" class="key-copy-btn" type="button" aria-label="Copy key">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="12" height="12" rx="2"/>
+                <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>
+              </svg>
+            </button>
+          </div>
+          <button id="continueToDashboard" class="btn btn-primary key-gate-btn" type="button">
+            I've saved it - enter my shop
+          </button>
+        </div>
+
+        <p id="keyGateError" class="key-gate-error" hidden></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/onboarding.js"></script>
+</body>
+</html>

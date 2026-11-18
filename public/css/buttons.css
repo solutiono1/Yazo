@@ -2,7 +2,11 @@
    look and behave the same everywhere in the app, not just on the page
    that happened to define them first. */
 
-.btn {
+/* :not([hidden]) rather than a bare .btn - "display: inline-flex" here
+   has the same specificity as the [hidden] UA rule it needs to lose to,
+   and author rules win cascade ties, so a hidden button stayed visible
+   the moment it carried any .btn class. */
+.btn:not([hidden]) {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);

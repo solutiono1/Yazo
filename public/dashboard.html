@@ -9,7 +9,6 @@
   <link rel="stylesheet" href="/css/fonts.css" />
   <link rel="stylesheet" href="/css/tokens.css" />
   <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/buttons.css" />
   <link rel="stylesheet" href="/css/badges.css" />
   <link rel="stylesheet" href="/css/order-row.css" />
   <link rel="stylesheet" href="/css/dashboard.css" />
@@ -65,36 +64,6 @@
     </aside>
 
     <main class="app-main">
-      <div id="keyGate" class="key-gate">
-        <img class="key-gate-mark" src="/favicon.svg" width="40" height="40" alt="" />
-        <h1>Your shop on Yazo</h1>
-        <p>
-          No sign-up form, no password. Your key to this dashboard - not an
-          account - and it's yours the moment it's created.
-        </p>
-
-        <button id="createShopBtn" class="btn btn-primary key-gate-btn" type="button">
-          Create your shop - it's free
-        </button>
-
-        <div class="key-gate-divider"><span>or, if you already have a key</span></div>
-
-        <form id="existingKeyForm" class="key-gate-existing">
-          <input id="keyInput" type="text" placeholder="Paste your yzm_... key" autocomplete="off" spellcheck="false" />
-          <button type="submit" class="btn btn-ghost btn-sm">Continue</button>
-        </form>
-
-        <div id="newKeyReveal" class="key-gate-reveal" hidden>
-          <p class="key-gate-reveal-label">This is shown once. Save it - it's the only way back in.</p>
-          <code id="newKeyText"></code>
-          <button id="continueToDashboard" class="btn btn-primary key-gate-btn" type="button">
-            I've saved it - enter my shop
-          </button>
-        </div>
-
-        <p id="keyGateError" class="key-gate-error" hidden></p>
-      </div>
-
       <div id="dashboardRoot" hidden>
         <div class="app-topbar">
           <div>

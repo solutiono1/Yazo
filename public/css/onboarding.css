@@ -1,0 +1,262 @@
+/* The onboarding/key-gate screen. Lives on its own page, not inside the
+   dashboard's sidebar shell - creating a shop or signing back into one
+   isn't "using the app" yet, so it shouldn't wear the app's own chrome. */
+
+.onboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  /* height, not min-height: the image's own intrinsic aspect ratio has
+     nothing to measure against once its height is a percentage, so an
+     ambiguous (min-)height here lets its natural 2:3 shape win instead
+     and stretch the row to its size rather than the viewport's. */
+  height: 100vh;
+}
+
+/* ------------------------------------------------------------ visual -- */
+
+.onboard-visual {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  height: 100%;
+  background: var(--ink);
+}
+
+.onboard-visual img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
+}
+
+.onboard-visual::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--ink) 75%, transparent) 0%,
+    transparent 55%
+  ),
+    linear-gradient(to bottom, color-mix(in srgb, var(--ink) 55%, transparent) 0%, transparent 35%);
+}
+
+.onboard-visual-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--sp-8);
+}
+
+.onboard-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--paper);
+  width: fit-content;
+}
+
+.onboard-wordmark img {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+
+.onboard-visual-tag {
+  max-width: 34ch;
+  color: color-mix(in srgb, var(--paper) 90%, transparent);
+  font-size: var(--body-sm);
+  line-height: 1.5;
+}
+
+/* -------------------------------------------------------------- panel -- */
+
+.onboard-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-8);
+  background: var(--paper);
+}
+
+.onboard-panel-inner {
+  width: 100%;
+  max-width: 420px;
+}
+
+.key-gate-mark {
+  border-radius: 10px;
+  margin-bottom: var(--sp-4);
+}
+
+.onboard-panel-inner h1 {
+  font-family: var(--font-display);
+  font-size: var(--heading-md);
+  margin-bottom: var(--sp-3);
+}
+
+.onboard-panel-inner > p {
+  color: var(--ink-soft);
+  font-size: var(--body-sm);
+  line-height: 1.6;
+}
+
+.key-gate-btn {
+  width: 100%;
+  margin-top: var(--sp-6);
+  justify-content: center;
+}
+
+.key-gate-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.key-gate-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-6) 0;
+  font-size: var(--caption);
+  color: var(--ink-muted);
+}
+
+.key-gate-divider::before,
+.key-gate-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.key-gate-existing {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.key-gate-existing input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--body-sm);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.key-gate-reveal {
+  margin-top: var(--sp-6);
+  padding: var(--sp-6);
+  background: var(--gold-soft);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.key-gate-reveal-label {
+  font-size: var(--caption);
+  font-weight: 600;
+  color: var(--gold-ink);
+  margin-bottom: var(--sp-3);
+}
+
+.key-gate-reveal-row {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+
+.key-gate-reveal-row code {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  font-family: var(--font-mono);
+  font-size: var(--caption);
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-3);
+}
+
+/* Small, on purpose - a copy action next to a code block should read as
+   a quiet utility, not another button competing with "enter my shop". */
+.key-copy-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  color: var(--ink-soft);
+  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.key-copy-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.key-copy-btn:hover {
+  border-color: var(--gold);
+  color: var(--ink);
+}
+
+.key-copy-btn.is-copied {
+  border-color: var(--state-released);
+  color: var(--state-released);
+}
+
+.key-gate-error {
+  margin-top: var(--sp-4);
+  font-size: var(--caption);
+  color: var(--state-locked);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 860px) {
+  .onboard {
+    grid-template-columns: 1fr;
+    /* Explicit row sizes, not implicit auto ones - leaving the row
+       track to size itself from content left it taller than the
+       200px .onboard-visual actually renders at, opening a dead gap
+       between the photo and the form underneath it. */
+    grid-template-rows: 200px 1fr;
+    height: auto;
+    min-height: 100vh;
+  }
+  .onboard-visual {
+    height: 200px;
+  }
+  .onboard-visual-overlay {
+    padding: var(--sp-5);
+  }
+  .onboard-visual-tag {
+    display: none;
+  }
+  .onboard-panel {
+    height: auto;
+    /* flex-start, not center - on a short two-row mobile stack the grid
+       hands this row any leftover min-height space, and centering
+       inside that would shove the form down behind a wall of blank
+       paper instead of starting right under the photo. */
+    align-items: flex-start;
+    padding: var(--sp-6);
+  }
+}
