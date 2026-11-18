@@ -236,8 +236,37 @@ deferral.
 
 ## What's next
 
-1. Source and swap in the four 3D icons above.
-2. Design the order-creation screen (the real equivalent of Comparta's
-   onboarding split-screen) and settle the photography question there.
-3. The remaining three product screens (show-the-code, collect, receipt)
+1. Design the order-creation screen (the real equivalent of Comparta's
+   onboarding split-screen) - the actual order+pay flow, not yet built.
+2. The remaining three product screens (show-the-code, collect, receipt)
    on this same token set, icon language, and sidebar pattern.
+3. **Before submission: re-read and rewrite README.md from scratch once
+   the UI work above is done.** It was written early and hasn't been
+   revisited against what actually shipped since - it needs to match the
+   real screens, the real stack (see below), and speak directly to the
+   judging criteria (problem -> solution -> impact -> next steps,
+   architecture, constraints, metrics to track). Not a task for now;
+   a hard gate before the hackathon submission goes in.
+
+## The actual stack, for anyone reading the repo
+
+GitHub's language bar only sees source bytes, not what's running, so it
+undercounts what this project touches. For the record:
+
+- **Backend**: plain Node.js (>=22), zero npm dependencies by design -
+  `node:https`, `node:sqlite`, `node:test`, nothing installed before a
+  judge can run it. See `src/store/sqlite.js` and `src/lightning/client.js`
+  for why that's a deliberate choice, not an oversight.
+- **Bitcoin/Lightning**: real LND (Lightning Network Daemon) over its
+  REST interface, using hold invoices - `AddHoldInvoice` /
+  `LookupInvoice` / `SettleInvoice` / `CancelInvoice`. The escrow is a
+  real Lightning HTLC (Hashed Timelock Contract), Bitcoin's own native
+  "hold until proof, release or refund" primitive - not an Ethereum-style
+  deployed smart contract, and not raw on-chain Bitcoin Core transactions
+  either. `scripts/regtest/` spins up a local btcd + lnd pair purely for
+  testing; the payment path itself is Lightning end to end.
+  `src/core/escrow.js` is our orchestration logic on top of that, not a
+  contract in the Solidity sense - there is no such thing on Lightning.
+- **Frontend**: plain HTML/CSS/vanilla JS, no framework, no build step.
+- **Tooling**: shell scripts (`scripts/`) for setup, preview, and the
+  pre-commit secret audit.
