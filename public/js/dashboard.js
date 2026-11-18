@@ -25,6 +25,12 @@
 
   const keyGate = document.getElementById("keyGate");
   const keyInput = document.getElementById("keyInput");
+  const existingKeyForm = document.getElementById("existingKeyForm");
+  const createShopBtn = document.getElementById("createShopBtn");
+  const newKeyReveal = document.getElementById("newKeyReveal");
+  const newKeyText = document.getElementById("newKeyText");
+  const continueToDashboard = document.getElementById("continueToDashboard");
+  const keyGateError = document.getElementById("keyGateError");
   const dashboardRoot = document.getElementById("dashboardRoot");
   const vendorFoot = document.getElementById("vendorFoot");
   const vendorIdLabel = document.getElementById("vendorIdLabel");
@@ -134,6 +140,11 @@
     return res.json();
   }
 
+  function showError(message) {
+    keyGateError.textContent = message;
+    keyGateError.hidden = false;
+  }
+
   async function boot(merchantKey) {
     try {
       const { vendorId, orders } = await loadOrders(merchantKey);
@@ -147,9 +158,9 @@
     } catch {
       keyGate.hidden = false;
       dashboardRoot.hidden = true;
-      keyInput.value = "";
-      keyInput.placeholder = "That key didn't work. Try again.";
+      newKeyReveal.hidden = true;
       location.hash = "";
+      showError("That key didn't work. Check it was pasted in full, or create a new shop below.");
     }
   }
 
@@ -158,11 +169,41 @@
     boot(fromHash);
   }
 
-  keyInput.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter") return;
+  // Returning vendor: paste the key they already have.
+  existingKeyForm.addEventListener("submit", (e) => {
+    e.preventDefault();
     const value = keyInput.value.trim();
     if (!value) return;
+    keyGateError.hidden = true;
     location.hash = value;
     boot(value);
+  });
+
+  // New vendor: no form, no password - just mint a key. This is the entire
+  // "sign-up" flow, because there is nothing else that needs collecting.
+  let mintedKey = null;
+  createShopBtn.addEventListener("click", async () => {
+    createShopBtn.disabled = true;
+    createShopBtn.textContent = "Creating...";
+    keyGateError.hidden = true;
+    try {
+      const res = await fetch("/api/merchants", { method: "POST" });
+      if (!res.ok) throw new Error(String(res.status));
+      const { merchantKey } = await res.json();
+      mintedKey = merchantKey;
+      newKeyText.textContent = merchantKey;
+      newKeyReveal.hidden = false;
+      createShopBtn.hidden = true;
+    } catch {
+      showError("Couldn't create a shop just now - the server may be unreachable. Try again in a moment.");
+      createShopBtn.disabled = false;
+      createShopBtn.textContent = "Create your shop - it's free";
+    }
+  });
+
+  continueToDashboard.addEventListener("click", () => {
+    if (!mintedKey) return;
+    location.hash = mintedKey;
+    boot(mintedKey);
   });
 })();

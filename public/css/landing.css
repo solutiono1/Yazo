@@ -141,50 +141,7 @@
 
 /* ------------------------------------------------------------- buttons -- */
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  height: 48px;
-  padding: 0 var(--sp-6);
-  border-radius: var(--radius-full);
-  font-size: var(--body-sm);
-  font-weight: 600;
-  white-space: nowrap;
-  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out);
-}
-
-.btn-primary {
-  background: var(--ink);
-  color: var(--paper);
-}
-
-.btn-primary:hover {
-  background: var(--gold-ink);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-card);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--ink);
-  box-shadow: inset 0 0 0 1.5px var(--hairline);
-}
-
-.btn-ghost:hover {
-  box-shadow: inset 0 0 0 1.5px var(--ink-muted);
-}
-
-.btn-sm {
-  height: 40px;
-  padding: 0 var(--sp-4);
-  font-size: var(--caption);
-}
+/* .btn and its variants live in buttons.css, shared with the dashboard. */
 
 /* -------------------------------------------------------------- hero -- */
 
