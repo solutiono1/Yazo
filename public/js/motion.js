@@ -109,6 +109,43 @@
 
   // Smooth scroll for the in-page nav, without fighting reduced-motion users.
   const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // The dot field in the footer lights up around the pointer. All this
+  // does is move a mask's centre - two custom properties, written once
+  // per frame - so the dots themselves are never re-painted or re-laid
+  // out. Pointer events only, so it costs a touch device nothing.
+  const revealFooter = document.getElementById("revealFooter");
+  const dotField = document.getElementById("dotField");
+  if (revealFooter && dotField && !prefersReduced) {
+    let pending = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    const paint = () => {
+      dotField.style.setProperty("--mx", `${lastX}px`);
+      dotField.style.setProperty("--my", `${lastY}px`);
+      pending = false;
+    };
+
+    revealFooter.addEventListener(
+      "pointermove",
+      (e) => {
+        if (e.pointerType === "touch") return;
+        const box = revealFooter.getBoundingClientRect();
+        lastX = e.clientX - box.left;
+        lastY = e.clientY - box.top;
+        dotField.classList.add("is-live");
+        if (pending) return;
+        pending = true;
+        requestAnimationFrame(paint);
+      },
+      { passive: true },
+    );
+
+    revealFooter.addEventListener("pointerleave", () => {
+      dotField.classList.remove("is-live");
+    });
+  }
   document.querySelectorAll('a[href^="#"]').forEach((link) => {
     link.addEventListener("click", (e) => {
       const target = document.querySelector(link.getAttribute("href"));

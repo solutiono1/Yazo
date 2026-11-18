@@ -287,6 +287,14 @@
       </div>
     </section>
 
+  </main>
+
+  <!-- Sits behind <main>, pinned to the bottom of the viewport. The page
+       above it is opaque, so scrolling the page up uncovers this like a
+       sheet sliding off it rather than scrolling it into view. -->
+  <div class="reveal-footer" id="revealFooter">
+    <div class="dot-field" id="dotField" aria-hidden="true"></div>
+
     <section class="closing section-dark">
       <div class="wrap">
         <h2 data-reveal>Build the next transfer differently.</h2>
@@ -296,8 +304,6 @@
         </div>
       </div>
     </section>
-
-  </main>
 
   <footer class="footer section-dark">
     <div class="wrap">
@@ -349,6 +355,7 @@
 
     <p class="footer-giant" aria-hidden="true">Yazo</p>
   </footer>
+  </div>
 
   <script src="/js/motion.js"></script>
 </body>

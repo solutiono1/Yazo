@@ -910,11 +910,93 @@
   max-width: 62ch;
 }
 
+/* --------------------------------------------------- revealed footer -- */
+/* The closing block and footer do not scroll into view - they sit still,
+   pinned to the bottom of the viewport behind the page, and the page
+   above (which is opaque) slides up off them like a sheet. Scroll back
+   up and the sheet slides down and covers them again. */
+
+main {
+  position: relative;
+  z-index: 1;
+  /* Opaque on purpose: this is the sheet. Make it transparent and the
+     footer behind it shows through the whole page. */
+  background: var(--paper);
+}
+
+.reveal-footer {
+  position: relative;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Only pinned where the block actually fits the viewport. A sticky
+   bottom anchors the bottom edge, so on a short screen the top of it
+   would be cut off permanently rather than just scrolled past - on
+   those, it scrolls normally instead. */
+@media (min-width: 861px) and (min-height: 800px) {
+  .reveal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 0;
+  }
+}
+
+/* The wrapper paints the dark background now, so the two blocks inside
+   it go transparent - otherwise their own background would cover the
+   dot field sitting between them and the wrapper. */
+.reveal-footer .closing,
+.reveal-footer .footer {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+}
+
+/* ------------------------------------------------------- the dot field -- */
+/* A grid of dots across the whole dark block, lit only where the cursor
+   is: the dots themselves are always painted, and the mask is what
+   follows the pointer, so nothing re-renders on move except one
+   gradient position. */
+
+.dot-field {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-out);
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--paper) 90%, transparent) 1.1px,
+    transparent 1.6px
+  );
+  background-size: 12px 12px;
+  -webkit-mask-image: radial-gradient(
+    300px circle at var(--mx, -500px) var(--my, -500px),
+    #000 0%,
+    rgba(0, 0, 0, 0.7) 35%,
+    transparent 75%
+  );
+  mask-image: radial-gradient(
+    300px circle at var(--mx, -500px) var(--my, -500px),
+    #000 0%,
+    rgba(0, 0, 0, 0.7) 35%,
+    transparent 75%
+  );
+}
+
+.dot-field.is-live {
+  opacity: 1;
+}
+
 /* ----------------------------------------------------------- closing -- */
 
 .closing {
   text-align: center;
-  padding-block: var(--sp-32);
+  /* Tighter than the other sections on purpose: this block and the
+     footer under it have to fit a viewport between them, because the
+     page uncovers them in place rather than scrolling them past. */
+  padding-block: var(--sp-16);
 }
 
 .closing h2 {
