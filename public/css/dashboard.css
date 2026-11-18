@@ -32,6 +32,13 @@
   letter-spacing: var(--tracking-tight);
   padding: 0 var(--sp-3);
   margin-bottom: var(--sp-8);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.sidebar-brand img {
+  border-radius: 6px;
 }
 
 .sidebar-nav {
