@@ -228,7 +228,7 @@
    display. */
 
 .hero-shot-outer {
-  max-width: 1680px;
+  max-width: 1520px;
   margin: 0 auto;
   padding-inline: var(--sp-6);
 }
@@ -242,7 +242,7 @@
 .hero-shot {
   margin-top: var(--sp-16);
   border-radius: var(--radius-lg);
-  padding: var(--sp-6);
+  padding: var(--sp-8);
   position: relative;
   overflow: hidden;
   background: linear-gradient(
@@ -270,13 +270,37 @@
   z-index: 0;
   display: grid;
   grid-template-columns: 84px 1fr;
-  min-height: min(640px, 72vh);
+  grid-template-rows: auto 1fr;
+  min-height: min(580px, 68vh);
   background: var(--paper);
   border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--paper) 15%, transparent);
-  box-shadow: var(--shadow-raised);
+  /* Its own shadow, on top of .hero-shot's - this is the "screenshot"
+     floating a little off the gold mat behind it, not flush with it. */
+  box-shadow: 0 20px 40px -12px rgba(20, 15, 8, 0.45),
+    0 4px 10px -4px rgba(20, 15, 8, 0.3);
   overflow: hidden;
 }
+
+.demo-window-titlebar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--paper-raised);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.demo-window-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.demo-window-dot.is-red { background: #ff5f57; }
+.demo-window-dot.is-yellow { background: #febc2e; }
+.demo-window-dot.is-green { background: #28c840; }
 
 .demo-window-sidebar {
   background: var(--paper-raised);
