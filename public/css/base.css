@@ -16,6 +16,10 @@ body {
   font-size: var(--body);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  /* A defensive backstop, not the fix: one overflowing child anywhere must
+     never be able to scroll the whole page sideways on a phone. */
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 img,

@@ -142,8 +142,102 @@ login/session machinery is more surface area to audit under a clock that's
 already running. Documented here so it isn't lost, built only if time
 remains after the four core screens.
 
+## Round 2: real screen recordings, a real mobile bug, and a font correction
+
+Watched two of the user's own screen recordings before touching anything
+else, per instruction: Talise's actual logged-in app (not just its
+marketing page) and Comparta's full onboarding through to its dashboard.
+
+**Talise's app**, not just its site: a "Choose your Talise name" onboarding
+modal with a skip option, a big centered balance (`₦0.00`), two pill
+buttons (`Add money` filled, `Send` outlined), an empty-activity state with
+an icon and a CTA, and an Earn tab with an APY chart and a short account
+list. Confirms the token system here (pill buttons, big display balance,
+quiet empty states) is pointed the right way.
+
+**Comparta's onboarding**: a split screen repeated across every step - a
+full-bleed, confident, candid photo (a man walking, looking up at the sky)
+on one side, the actual form on the other ("Create account" → business vs.
+individual → "Finish setting up": org name, full name, country, role →
+"Continue to dashboard"). The photography is real, warm, and specific, not
+generic stock - worth saying plainly, because it contradicts what the
+earlier text-only fetch of the same site could not confirm. The dashboard
+that follows: sidebar nav, a greeting, a row of quick-action buttons, and
+two-column summary cards.
+
+**Correction to the earlier "no stock photography" call.** That decision
+stands for the *landing* page, where hand-drawn icons keep the story
+ownable without betting on found photography. But Comparta's onboarding
+proves curated, specific, real photography (not generic stock) earns its
+keep in a *flow*, not just a hero. Yazo's order-creation screen is the
+right place to revisit this - noted as an open call for whoever builds
+that screen, not decided here.
+
+### A real mobile bug, found and fixed with the right tool
+
+`--window-size` on headless Chrome's `--screenshot` does **not** set the
+CSS layout viewport - it renders at a desktop width and crops the image to
+the requested pixel size. Every earlier "mobile" screenshot in this session
+was measuring that crop, not a phone. Confirmed with a two-line test file
+and fixed by driving Chrome through the DevTools Protocol directly
+(`Emulation.setDeviceMetricsOverride` with `mobile: true`), which is what
+Puppeteer and Playwright do under the hood and is the only way to get an
+honest mobile render from the CLI.
+
+Real mobile rendering (390×844, 2x) surfaced one actual bug, not the
+overflow first suspected: on the dashboard, `.app-main`'s padding and
+`.stat-grid`'s column count were each declared twice - once inside a
+`@media (max-width: 860px)` block placed near the *top* of
+`dashboard.css`, and once again, unconditionally, by a later rule of equal
+specificity further down the file. Same-specificity rules resolve by source
+order, so the later, non-mobile rule always won, silently cancelling the
+responsive one. The symptom: the fixed mobile menu button sat on top of the
+page heading, because the padding meant to clear it was never actually
+applied. Fixed by moving every media query in `dashboard.css` to the end of
+the file, after every base rule it touches - the only ordering that can't
+lose this way. `public/css/base.css` also gained a defensive
+`overflow-x: hidden` backstop on `body`, and `.formula`'s missing
+`white-space: pre` (which made its three-line code block collapse and
+reflow like prose on a narrow screen) is fixed too.
+
+The mobile sidebar had no way to open at all - the CSS hid it off-canvas
+but nothing ever showed a toggle. Added a fixed hamburger button, a
+backdrop that closes it on tap, and verified the open/close interaction by
+driving an actual click through the DevTools Protocol, not by reading the
+CSS and assuming.
+
+### Font correction: evidenced, not guessed
+
+The user's own DevTools screenshots of talise.io show its computed
+`font-family` naming **"Neue Montreal"** directly inside the fallback
+chain - confirmation, not a guess, that the real font is related to PP
+Neue Montreal (Pangram Pangram), a paid commercial face. Clash Display -
+the earlier pick - is a different, more expressive geometric display face;
+closer in spirit but not in actual letterform. Replaced it everywhere with
+**Switzer** (Fontshare, free for commercial use, self-hosted under
+`public/fonts/`), the standard free substitute for Neue Montreal: a
+single-family, 100–900 variable neo-grotesque that reads correctly at both
+display and body sizes, the way Talise's own type does. General Sans stays
+for body where Switzer at small sizes reads slightly too wide; worth
+revisiting once real copy is finalised.
+
+### Icon assets: a concrete sourcing plan, not yet pulled in
+
+Talise's own icon language is glossy 3D renders (padlock, globe,
+verification badge, paper plane, piggy bank), not flat line icons - the
+user's own research surfaced two free, human-made, non-AI sources that
+cover exactly the shapes Yazo already needs: **ICONZ** (480 handcrafted 3D
+icons, free) and **Craftwork's Essential Objects pack** (padlock, trophy,
+bell, badge). The plan: pull a padlock (the hold), a verification badge
+(released), a paper plane (send), and a globe (cross-border) from one of
+these two packs to replace the current hand-drawn line icons in the hero
+and how-it-works strip. Not done yet - the next concrete step, not a
+deferral.
+
 ## What's next
 
-The four product screens (order + pay, show-the-code, collect, receipt)
-build on this same token set, icon language, and sidebar pattern. They
-haven't been started.
+1. Source and swap in the four 3D icons above.
+2. Design the order-creation screen (the real equivalent of Comparta's
+   onboarding split-screen) and settle the photography question there.
+3. The remaining three product screens (show-the-code, collect, receipt)
+   on this same token set, icon language, and sidebar pattern.

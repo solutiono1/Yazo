@@ -5,6 +5,24 @@
 (() => {
   "use strict";
 
+  // The sidebar is the only navigation on this screen, so on a phone it
+  // needs a button that is always reachable, not one you have to scroll to.
+  const sidebar = document.getElementById("sidebar");
+  const menuToggle = document.getElementById("menuToggle");
+  const backdrop = document.getElementById("sidebarBackdrop");
+  const closeSidebar = () => {
+    sidebar.classList.remove("is-open");
+    backdrop.classList.remove("is-open");
+    menuToggle.setAttribute("aria-expanded", "false");
+  };
+  menuToggle.addEventListener("click", () => {
+    const open = sidebar.classList.toggle("is-open");
+    backdrop.classList.toggle("is-open", open);
+    menuToggle.setAttribute("aria-expanded", String(open));
+  });
+  backdrop.addEventListener("click", closeSidebar);
+  sidebar.querySelectorAll("a").forEach((a) => a.addEventListener("click", closeSidebar));
+
   const keyGate = document.getElementById("keyGate");
   const keyInput = document.getElementById("keyInput");
   const dashboardRoot = document.getElementById("dashboardRoot");
@@ -86,13 +104,15 @@
         whoMeta.textContent = timeAgo(o.createdAt);
         who.append(whoName, whoMeta);
 
-        const amount = document.createElement("p");
-        amount.className = "amount";
-        amount.textContent = o.amount.usdFormatted;
-
-        const sats = document.createElement("p");
-        sats.className = "meta amount";
+        const amounts = document.createElement("div");
+        amounts.className = "order-amounts";
+        const usd = document.createElement("span");
+        usd.className = "amount";
+        usd.textContent = o.amount.usdFormatted;
+        const sats = document.createElement("span");
+        sats.className = "amount meta";
         sats.textContent = `${o.amount.sats} sats`;
+        amounts.append(usd, sats);
 
         const badge = document.createElement("span");
         badge.className = `badge ${BADGE[o.state] ?? "badge-void"}`;
@@ -100,7 +120,7 @@
         dot.className = "dot";
         badge.append(dot, document.createTextNode(o.status));
 
-        row.append(who, amount, sats, badge);
+        row.append(who, amounts, badge);
         return row;
       }),
     );
