@@ -6,6 +6,7 @@
 // reconcile our record against it, and only then start accepting requests. A
 // server that answers before it has reconciled can tell a vendor he was not
 // paid when the node already settled him.
+import { randomBytes } from "node:crypto";
 import { EscrowService } from "./escrow-service.js";
 import { SqliteStore } from "./store/sqlite.js";
 import { LndClient } from "./lightning/client.js";
@@ -28,6 +29,22 @@ const config = {
 
 const log = (...a) => console.log(new Date().toISOString(), "[yazo]", ...a);
 
+// Every merchant key is an HMAC under this one secret - there is no server
+// table of merchants to protect instead, but this is now the thing that
+// must never leak or roll over unannounced: rolling it invalidates every
+// merchant key issued so far. Generating one at boot is a usable default for
+// a demo; losing it on every restart is the trade-off, and is why a real
+// deployment sets YAZO_MERCHANT_SECRET itself.
+function merchantSecret() {
+  const fromEnv = process.env.YAZO_MERCHANT_SECRET;
+  if (fromEnv) {
+    if (fromEnv.length < 16) throw new Error("YAZO_MERCHANT_SECRET must be at least 16 characters");
+    return fromEnv;
+  }
+  log("YAZO_MERCHANT_SECRET not set - generating one for this run only; merchant keys will not survive a restart");
+  return randomBytes(32).toString("base64url");
+}
+
 async function main() {
   const store = new SqliteStore(config.dbPath);
   log(`database ${config.dbPath}`);
@@ -42,6 +59,7 @@ async function main() {
     node,
     store,
     btcUsd: async () => config.btcUsd,
+    merchantSecret: merchantSecret(),
     onError: (e, orderId) => log(`error on ${orderId ?? "-"}: ${e.message}`),
   });
 

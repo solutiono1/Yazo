@@ -1,0 +1,139 @@
+/* Yazo's design tokens.
+ *
+ * Studied talise.io and comparta.xyz closely: both converge independently on
+ * a light canvas, pill-shaped buttons, and tight negative tracking on big
+ * display type. Those three choices are adopted here because two unrelated
+ * fintech teams landing on the same answer is a signal, not a coincidence.
+ *
+ * Everything else is Yazo's own. Neither reference defines a semantic colour
+ * ramp (both explicitly have none), so the state colours below are original:
+ * they map directly to the four things that can happen to an order, not to
+ * decoration. Color carries information here, on purpose.
+ */
+
+:root {
+  /* ---- canvas & ink: warm, not clinical ---- */
+  --paper: #fbf8f2;
+  --paper-raised: #f3eee1;
+  --paper-sunken: #ece5d3;
+  --hairline: #e3d9c2;
+  --ink: #18140f;
+  --ink-soft: #4a4336;
+  --ink-muted: #867a64;
+
+  /* ---- the one accent: lightning gold, used sparingly ---- */
+  --gold: #d9a531;
+  --gold-ink: #4a3614;
+  --gold-soft: #f3e3bc;
+
+  /* ---- order-state colours: meaning, not mood ---- */
+  --state-awaiting: var(--ink-muted);
+  --state-locked: #c6881f;
+  --state-locked-bg: #fbf1da;
+  --state-released: #2f6b4f;
+  --state-released-bg: #e7f1ea;
+  --state-refunded: #3a6079;
+  --state-refunded-bg: #e8eff3;
+  --state-void: var(--ink-muted);
+  --state-void-bg: var(--paper-sunken);
+
+  /* ---- type ---- */
+  --font-display: "Clash Display", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "General Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Consolas, monospace;
+
+  --display-2xl: clamp(2.75rem, 2rem + 4vw, 5.5rem);
+  --display-xl: clamp(2.25rem, 1.75rem + 2.5vw, 3.75rem);
+  --display-lg: clamp(1.75rem, 1.5rem + 1.25vw, 2.5rem);
+  --heading-md: 1.5rem;
+  --heading-sm: 1.125rem;
+  --body-lg: 1.1875rem;
+  --body: 1rem;
+  --body-sm: 0.9375rem;
+  --caption: 0.8125rem;
+
+  --tracking-display: -0.03em;
+  --tracking-tight: -0.015em;
+
+  /* ---- space: 4px base ---- */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-12: 3rem;
+  --sp-16: 4rem;
+  --sp-24: 6rem;
+  --sp-32: 8rem;
+
+  /* ---- shape ---- */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-full: 999px;
+
+  /* ---- motion: calm, not bouncy ---- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 150ms;
+  --dur-base: 320ms;
+  --dur-slow: 560ms;
+
+  --shadow-card: 0 1px 2px rgba(24, 20, 15, 0.04), 0 12px 32px -8px rgba(24, 20, 15, 0.08);
+  --shadow-raised: 0 2px 4px rgba(24, 20, 15, 0.06), 0 24px 48px -16px rgba(24, 20, 15, 0.14);
+
+  --max-width: 1180px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #13110d;
+    --paper-raised: #1c1812;
+    --paper-sunken: #0c0a07;
+    --hairline: #2d2619;
+    --ink: #f5efe1;
+    --ink-soft: #c9bea6;
+    --ink-muted: #8c8169;
+
+    --gold: #e8b84a;
+    --gold-ink: #2a1f0a;
+    --gold-soft: #3a2e14;
+
+    --state-locked: #e8b84a;
+    --state-locked-bg: #2f2512;
+    --state-released: #5ea985;
+    --state-released-bg: #16261d;
+    --state-refunded: #76a7c4;
+    --state-refunded-bg: #152027;
+    --state-void-bg: var(--paper-sunken);
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+    --shadow-raised: 0 2px 4px rgba(0, 0, 0, 0.4), 0 24px 48px -16px rgba(0, 0, 0, 0.6);
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #13110d;
+  --paper-raised: #1c1812;
+  --paper-sunken: #0c0a07;
+  --hairline: #2d2619;
+  --ink: #f5efe1;
+  --ink-soft: #c9bea6;
+  --ink-muted: #8c8169;
+
+  --gold: #e8b84a;
+  --gold-ink: #2a1f0a;
+  --gold-soft: #3a2e14;
+
+  --state-locked: #e8b84a;
+  --state-locked-bg: #2f2512;
+  --state-released: #5ea985;
+  --state-released-bg: #16261d;
+  --state-refunded: #76a7c4;
+  --state-refunded-bg: #152027;
+  --state-void-bg: var(--paper-sunken);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+  --shadow-raised: 0 2px 4px rgba(0, 0, 0, 0.4), 0 24px 48px -16px rgba(0, 0, 0, 0.6);
+}

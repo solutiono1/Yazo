@@ -17,6 +17,7 @@ import { CAP, can } from "../core/capability.js";
 import {
   readJsonBody,
   readLinkKey,
+  readBearerHeader,
   requireString,
   requireUsdCents,
   requireOrderId,
@@ -60,10 +61,12 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
   const general = new RateLimiter({ limit: 120, windowMs: 60_000, now });
   const releases = new RateLimiter({ limit: 10, windowMs: 60_000, now });
   const creates = new RateLimiter({ limit: 20, windowMs: 60_000, now });
+  const merchants = new RateLimiter({ limit: 10, windowMs: 60_000, now });
   setInterval(() => {
     general.prune();
     releases.prune();
     creates.prune();
+    merchants.prune();
   }, 60_000).unref?.();
 
   // Each open stream costs two timers and a socket for as long as it lives,
@@ -173,6 +176,39 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
       method: "GET",
       pattern: /^\/api\/health$/,
       handler: async (_req, res) => send(res, 200, { ok: true, service: "yazo" }),
+    },
+
+    // A merchant key: a durable credential over one vendorId's order
+    // history. No signup, no email, no stored record of this call - the key
+    // is self-certifying. Returned exactly once, like the release secret.
+    {
+      method: "POST",
+      pattern: /^\/api\/merchants$/,
+      handler: async (req, res) => {
+        merchants.check(clientKey(req));
+        const minted = service.mintMerchantKey();
+        send(res, 201, {
+          vendorId: minted.vendorId,
+          merchantKey: minted.merchantKey,
+          merchantKeyNotice: "This is shown exactly once. Losing it means starting over with a new vendorId.",
+        });
+      },
+    },
+
+    // The vendor's own dashboard feed. Header only - no ?k= fallback - since
+    // this lists every order a vendor has ever taken, not one.
+    {
+      method: "GET",
+      pattern: /^\/api\/merchants\/orders$/,
+      handler: async (req, res) => {
+        merchants.check(clientKey(req));
+        const key = readBearerHeader(req);
+        if (!key) throw new Unauthorized("a merchant key is required");
+        const vendorId = service.authoriseMerchant(key);
+        if (!vendorId) throw new Unauthorized("that merchant key is not valid");
+        const orders = await service.ordersForVendor(vendorId);
+        send(res, 200, { vendorId, orders: orders.map((o) => orderView(o, { now: now() })) });
+      },
     },
 
     // Create an order. The release secret is in this response and nowhere else,

@@ -140,6 +140,20 @@ export function readLinkKey(req, url) {
   return null;
 }
 
+/**
+ * A bearer token from the Authorization header only - no query-string
+ * fallback. Used for merchant keys: listing a vendor's whole order history
+ * is a bigger blast radius than viewing one order, so the weaker channel
+ * (query strings end up in proxy logs and Referer headers) is not offered
+ * for it at all.
+ */
+export function readBearerHeader(req) {
+  const header = req.headers.authorization;
+  if (typeof header !== "string") return null;
+  const match = /^Bearer\s+(\S+)$/i.exec(header.trim());
+  return match ? match[1] : null;
+}
+
 /** Order ids are issued by us; reject anything that is not our shape. */
 export const ORDER_ID = /^ord_[A-Za-z0-9_-]{10,64}$/;
 

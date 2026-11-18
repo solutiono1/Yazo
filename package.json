@@ -14,6 +14,7 @@
     "regtest:up": "node scripts/regtest/up.mjs",
     "regtest:fresh": "node scripts/regtest/up.mjs --fresh",
     "demo": "node scripts/demo.mjs",
+    "preview": "node scripts/preview.mjs",
     "audit:staged": "bash scripts/audit-staged.sh"
   },
   "engines": {

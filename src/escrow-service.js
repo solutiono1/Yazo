@@ -27,6 +27,7 @@ import {
 import { quote } from "./core/money.js";
 import { newReleaseSecret, recoverPreimage, MODE_QR, paymentHashFor } from "./core/secret.js";
 import { newGrantSet, roleFor, capabilitiesOf } from "./core/capability.js";
+import { newMerchantId, mintMerchantKey, merchantIdFor } from "./core/merchant.js";
 import { INVOICE_STATE } from "./lightning/client.js";
 import { KeyedMutex } from "./keyed-mutex.js";
 
@@ -69,6 +70,7 @@ export class EscrowService {
     btcUsd,
     idFactory = defaultIdFactory,
     onError,
+    merchantSecret,
   }) {
     if (!node) throw new EscrowError("a Lightning node is required");
     if (typeof btcUsd !== "function") throw new EscrowError("a btcUsd price source is required");
@@ -78,6 +80,9 @@ export class EscrowService {
     this.btcUsd = btcUsd;
     this.idFactory = idFactory;
     this.onError = onError;
+    // Optional: without it, merchant keys (durable, cross-order vendor access)
+    // are unavailable, but order-level capability links are unaffected.
+    this.merchantSecret = merchantSecret;
     // One order is never processed by two requests at once. See keyed-mutex.js.
     this.locks = new KeyedMutex();
     // orderId -> unsubscribe, for live invoice subscriptions.
@@ -300,6 +305,38 @@ export class EscrowService {
       throw new EscrowError("the node returned a preimage that does not match this order");
     }
     return receipt(order, preimage);
+  }
+
+  /**
+   * Give a vendor a durable credential over their own order history.
+   *
+   * No signup, no email, no stored record of this call succeeding: the key
+   * is self-certifying (core/merchant.js), so there is nothing here to leak
+   * or to lose except the one secret every key is signed with.
+   */
+  mintMerchantKey(vendorId = newMerchantId()) {
+    if (!this.merchantSecret) throw new EscrowError("merchant keys are not configured on this server");
+    return { vendorId, merchantKey: mintMerchantKey(vendorId, this.merchantSecret) };
+  }
+
+  /** Resolve a presented merchant key to the vendorId it authenticates as, or null. */
+  authoriseMerchant(key) {
+    if (!this.merchantSecret) return null;
+    return merchantIdFor(key, this.merchantSecret);
+  }
+
+  /**
+   * Every order ever attached to this vendorId, newest first.
+   *
+   * vendorId is a label a payer attaches at order creation, not a
+   * fund-routing address - every order still settles through this
+   * deployment's one Lightning node regardless of whose name is on it. A
+   * merchant key therefore grants read access to a label's history, not
+   * custody of anything.
+   */
+  async ordersForVendor(vendorId) {
+    const all = this.store.all ? await this.store.all() : [];
+    return all.filter((o) => o.vendorId === vendorId).sort((a, b) => b.createdAt - a.createdAt);
   }
 
   /**

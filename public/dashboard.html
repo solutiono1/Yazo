@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yazo</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/css/fonts.css" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/dashboard.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <p class="sidebar-brand">Yazo</p>
+      <ul class="sidebar-nav">
+        <li>
+          <a class="sidebar-link is-active" href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="8" height="8" rx="1.5"/>
+              <rect x="13" y="3" width="8" height="8" rx="1.5"/>
+              <rect x="3" y="13" width="8" height="8" rx="1.5"/>
+              <rect x="13" y="13" width="8" height="8" rx="1.5"/>
+            </svg>
+            Dashboard
+          </a>
+        </li>
+        <li>
+          <a class="sidebar-link" href="#orders">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 6h13M8 12h13M8 18h13"/>
+              <circle cx="3.5" cy="6" r="1.2" fill="currentColor" stroke="none"/>
+              <circle cx="3.5" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+              <circle cx="3.5" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+            </svg>
+            Orders
+          </a>
+        </li>
+        <li>
+          <a class="sidebar-link" href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3 4 6v5c0 5.5 8 9 8 9s8-3.5 8-9V6z"/>
+            </svg>
+            Security
+          </a>
+        </li>
+      </ul>
+      <div class="sidebar-foot" id="vendorFoot" hidden>
+        Signed in as
+        <span class="vendor-id" id="vendorIdLabel"></span>
+      </div>
+    </aside>
+
+    <main class="app-main">
+      <div id="keyGate" class="key-gate">
+        <h1>Enter your merchant key</h1>
+        <p>
+          Paste the key you got from <code>POST /api/merchants</code>. It
+          stays in this page's address bar fragment and is sent only in this
+          page's own request to Yazo, never anywhere else.
+        </p>
+        <input id="keyInput" type="text" placeholder="yzm_..." autocomplete="off" spellcheck="false" />
+      </div>
+
+      <div id="dashboardRoot" hidden>
+        <div class="app-topbar">
+          <div>
+            <p class="app-greeting">Your orders</p>
+            <p class="app-sub" id="vendorSub"></p>
+          </div>
+        </div>
+        <div class="stat-grid" id="statGrid"></div>
+        <div class="order-list" id="orderList"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

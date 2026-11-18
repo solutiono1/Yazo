@@ -1,1 +1,253 @@
-<!doctype html><meta charset="utf-8"><title>Yazo</title><p>Interface coming next.</p>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yazo</title>
+  <meta name="description" content="Yazo locks a dollar-priced payment on Bitcoin Lightning until the person receiving it shows their delivery code. The vendor can't take it early. Neither can Yazo." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/css/fonts.css" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/landing.css" />
+</head>
+<body>
+
+  <header class="nav" id="siteNav">
+    <div class="nav-bar">
+      <div class="wrap">
+        <a href="#top" class="wordmark">Yazo</a>
+        <ul class="nav-links">
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#guarantee">The guarantee</a></li>
+          <li><a href="#security">Security</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+        <div class="nav-cta">
+          <a class="btn btn-ghost btn-sm" href="https://github.com/solutiono1/Yazo" rel="noopener">GitHub</a>
+          <a class="btn btn-primary btn-sm" href="#how">Watch it work</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <section class="hero">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="wrap">
+        <div class="hero-inner" data-reveal>
+          <h1>Send money that<br />waits for proof.</h1>
+          <p>
+            Yazo locks a dollar-priced payment until the person receiving it
+            shows their delivery code. The vendor can't take it early.
+            Neither can Yazo.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#how">Watch it work</a>
+            <a class="btn btn-ghost" href="https://github.com/solutiono1/Yazo" rel="noopener">View the code</a>
+          </div>
+          <p class="hero-note">No account. No card. No "3-5 business days."</p>
+        </div>
+
+        <div class="hero-shot" data-reveal>
+          <p class="hero-shot-tag"><span class="dot" aria-hidden="true"></span> Real screenshot, not a mockup</p>
+          <img
+            src="/images/dashboard.png"
+            width="1280"
+            height="760"
+            alt="The Yazo vendor dashboard, showing four real orders in different states: waiting for payment, paid and held, released to the vendor, and refunded to the payer."
+          />
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="section-kicker">The problem</p>
+          <h2>A transfer isn't delivery.</h2>
+          <p>
+            Cash sent abroad gets lost to fake payment alerts, skimmed by a
+            middleman, or just never confirmed. So people send less, or only
+            to someone they already trust completely.
+          </p>
+        </div>
+
+        <p class="contrast-line" data-reveal>
+          Sent is not the same as <span class="strike">delivered</span>.
+        </p>
+
+        <div class="stat-row" data-reveal-group>
+          <div class="stat">
+            <p class="num">$<span data-count-to="21.8" data-count-decimals="1">0</span>bn</p>
+            <p class="cap">sent into Nigeria in 2025</p>
+          </div>
+          <div class="stat">
+            <p class="num"><span data-count-to="8.46" data-count-decimals="2">0</span>%</p>
+            <p class="cap">average cost to send it, against a 6.36% global rate</p>
+          </div>
+          <div class="stat">
+            <p class="num">#1</p>
+            <p class="cap">Nigeria's rank worldwide in cross-border crypto flows</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="section section-dark">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="section-kicker">How it works</p>
+          <h2>Four steps. Nobody has to trust anybody.</h2>
+          <p>Each one is enforced by the Lightning network itself. Not by a dashboard. Not by us.</p>
+        </div>
+
+        <div class="steps" data-reveal-group>
+          <div class="step">
+            <div class="n">1</div>
+            <h3>Order</h3>
+            <p>Pick an amount and who it's for. Yazo issues a Lightning hold invoice for that exact sum.</p>
+          </div>
+          <div class="step">
+            <div class="n">2</div>
+            <h3>Pay</h3>
+            <p>You pay the invoice. The network holds the payment. Not spent. Not released. Just held.</p>
+          </div>
+          <div class="step">
+            <div class="n">3</div>
+            <h3>Show the code</h3>
+            <p>The recipient gets a one-time code. It only gets shown once the goods are actually in hand.</p>
+          </div>
+          <div class="step">
+            <div class="n">4</div>
+            <h3>Released</h3>
+            <p>The code unlocks the hold. The vendor is paid in seconds. No waiting. No middleman.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="guarantee" class="section">
+      <div class="wrap">
+        <div class="guarantee-grid">
+          <div data-reveal>
+            <p class="section-kicker">The guarantee</p>
+            <h2 class="guarantee-title">
+              Even we can't take it early.
+            </h2>
+            <p class="guarantee-text">
+              A Lightning hold invoice only pays out to whoever can produce
+              its <em>preimage</em>. Yazo derives that from a secret that only
+              the recipient holds, and never stores it.
+            </p>
+
+            <ul class="who-cant">
+              <li><span class="mark">✓</span> The vendor: never sees the recipient's secret</li>
+              <li><span class="mark">✓</span> Yazo's servers: store only a salt and a payment hash, never the secret or the preimage</li>
+              <li><span class="mark">✓</span> Whoever steals the entire database: same reason</li>
+              <li><span class="mark">✓</span> Nobody, if it's never delivered: the hold expires and the payer is refunded automatically</li>
+            </ul>
+          </div>
+
+          <div class="formula" data-reveal>
+<span class="op">preimage</span>&nbsp;&nbsp;&nbsp;= <span class="fn">sha256</span>(DOMAIN, salt, secret)
+<span class="op">paymentHash</span> = <span class="fn">sha256</span>(preimage)
+
+<span class="op">// the server stores only this line:</span>
+{ salt, paymentHash }</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="security" class="section">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="section-kicker">Security</p>
+          <h2>Audited like it holds real money, because one day it will.</h2>
+          <p>Every claim on this page has a test behind it. Yazo's founder is also its solo auditor, and the full threat model is public: what's defended, and what plainly isn't.</p>
+        </div>
+
+        <div class="security-card" data-reveal>
+          <p class="security-count">56<span>automated checks</span></p>
+          <div>
+            <a class="btn btn-ghost btn-sm" href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md" rel="noopener">Read the full audit →</a>
+            <ul class="honesty-list">
+              <li>Typed codes, for feature phones, are weaker than QR codes, and we say so</li>
+              <li>This is a testnet demo. No real funds move yet.</li>
+              <li>No cookies, no accounts, no third-party script on this page. There's nothing here to track you with.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="section">
+      <div class="wrap">
+        <div class="section-head" data-reveal>
+          <p class="section-kicker">Questions</p>
+          <h2>Before you ask</h2>
+        </div>
+
+        <div class="faq" data-reveal>
+          <details class="faq-item" name="faq">
+            <summary class="faq-q">What happens if the item never arrives?<span class="plus" aria-hidden="true"></span></summary>
+            <div class="faq-a">The hold expires automatically (six hours by default), and the payment returns to the sender. Nobody has to ask for a refund; a watcher does it on its own.</div>
+          </details>
+          <details class="faq-item" name="faq">
+            <summary class="faq-q">Can the vendor take the money before delivery?<span class="plus" aria-hidden="true"></span></summary>
+            <div class="faq-a">No. The payment only releases when the recipient's code unlocks it. The vendor never has that code until the recipient chooses to show it.</div>
+          </details>
+          <details class="faq-item" name="faq">
+            <summary class="faq-q">What if the code gets lost?<span class="plus" aria-hidden="true"></span></summary>
+            <div class="faq-a">QR codes carry 128 bits of randomness, so there's no realistic way to guess one. If it's genuinely lost, the hold still expires on schedule and the money returns to the sender.</div>
+          </details>
+          <details class="faq-item" name="faq">
+            <summary class="faq-q">Is this real money?<span class="plus" aria-hidden="true"></span></summary>
+            <div class="faq-a">Not yet. This build runs on Lightning's test network for the hackathon. The escrow logic is real and runs against a live two-node network; the funds moving through it are test funds.</div>
+          </details>
+          <details class="faq-item" name="faq">
+            <summary class="faq-q">Why Lightning, and not a stablecoin on another chain?<span class="plus" aria-hidden="true"></span></summary>
+            <div class="faq-a">Lightning has a primitive most chains don't: a payment that can be held, then either released or returned, enforced by the network itself. Not by Yazo. Not by an admin button.</div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="closing">
+      <div class="wrap">
+        <h2 data-reveal>Build the next transfer differently.</h2>
+        <div class="hero-actions" data-reveal>
+          <a class="btn btn-primary" href="https://github.com/solutiono1/Yazo" rel="noopener">View the code</a>
+          <a class="btn btn-ghost" href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md" rel="noopener">Read the security model</a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <div class="footer-top">
+        <a class="footer-security" href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md" rel="noopener">
+          <span class="dot" aria-hidden="true"></span> Security · 56 automated checks
+        </a>
+        <nav class="footer-links">
+          <a href="https://github.com/solutiono1/Yazo" rel="noopener">GitHub</a>
+          <a href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md" rel="noopener">Security</a>
+          <a href="https://github.com/solutiono1/Yazo/blob/main/README.md" rel="noopener">README</a>
+        </nav>
+      </div>
+      <p class="footer-legal">
+        Yazo is a hackathon build currently running on Lightning's test
+        network. No real funds move through this demo yet. It sets no
+        cookies and asks for no account; the only record kept of you is the
+        order you create, identified by a link, not an identity. Built for
+        the Dakar Bitcoin Hack by BTrust.
+      </p>
+    </div>
+  </footer>
+
+  <script src="/js/motion.js"></script>
+</body>
+</html>

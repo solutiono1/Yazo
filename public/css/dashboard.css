@@ -1,0 +1,265 @@
+/* The vendor dashboard. A tool you sit inside, not a page you scroll
+   through, so navigation is a sidebar rather than a top bar. */
+
+.app {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+
+@media (max-width: 860px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    transform: translateX(-100%);
+    z-index: 50;
+  }
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+}
+
+.sidebar {
+  background: var(--paper-raised);
+  border-right: 1px solid var(--hairline);
+  padding: var(--sp-6) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  width: 240px;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.sidebar-brand {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  padding: 0 var(--sp-3);
+  margin-bottom: var(--sp-8);
+}
+
+.sidebar-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-1);
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--body-sm);
+  font-weight: 500;
+  color: var(--ink-soft);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.sidebar-link svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.sidebar-link:hover {
+  background: var(--paper-sunken);
+  color: var(--ink);
+}
+
+.sidebar-link.is-active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.sidebar-foot {
+  margin-top: auto;
+  padding: var(--sp-3);
+  font-size: var(--caption);
+  color: var(--ink-muted);
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--sp-4);
+}
+
+.sidebar-foot .vendor-id {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  margin-top: var(--sp-1);
+  word-break: break-all;
+}
+
+/* ------------------------------------------------------------- main -- */
+
+.app-main {
+  padding: var(--sp-8) var(--sp-8) var(--sp-16);
+  background: var(--paper);
+  min-width: 0;
+}
+
+.app-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--sp-8);
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.app-greeting {
+  font-family: var(--font-display);
+  font-size: var(--heading-md);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+}
+
+.app-sub {
+  color: var(--ink-muted);
+  font-size: var(--body-sm);
+  margin-top: var(--sp-1);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-8);
+}
+
+.stat-card {
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: var(--sp-6) var(--sp-4);
+}
+
+.stat-card .cap {
+  font-size: var(--caption);
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-card .num {
+  font-family: var(--font-display);
+  font-size: var(--heading-md);
+  font-weight: 600;
+  margin-top: var(--sp-2);
+}
+
+.stat-card.is-amber .num { color: var(--state-locked); }
+.stat-card.is-green .num { color: var(--state-released); }
+.stat-card.is-teal .num { color: var(--state-refunded); }
+
+/* -------------------------------------------------------------- list -- */
+
+.order-list {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.order-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: var(--sp-4);
+  align-items: center;
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--body-sm);
+}
+
+.order-row:last-child {
+  border-bottom: none;
+}
+
+.order-row .who {
+  font-weight: 600;
+}
+
+.order-row .meta {
+  color: var(--ink-muted);
+  font-size: var(--caption);
+  margin-top: 2px;
+}
+
+.order-row .amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--radius-full);
+  font-size: var(--caption);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.badge-awaiting { background: var(--paper-sunken); color: var(--state-awaiting); }
+.badge-awaiting .dot { background: var(--state-awaiting); }
+
+.badge-locked { background: var(--state-locked-bg); color: var(--state-locked); }
+.badge-locked .dot { background: var(--state-locked); }
+
+.badge-released { background: var(--state-released-bg); color: var(--state-released); }
+.badge-released .dot { background: var(--state-released); }
+
+.badge-refunded { background: var(--state-refunded-bg); color: var(--state-refunded); }
+.badge-refunded .dot { background: var(--state-refunded); }
+
+.badge-void { background: var(--state-void-bg); color: var(--state-void); }
+.badge-void .dot { background: var(--state-void); }
+
+.empty-state {
+  padding: var(--sp-16);
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: var(--body-sm);
+}
+
+.key-gate {
+  max-width: 420px;
+  margin: var(--sp-32) auto;
+  text-align: center;
+  padding: var(--sp-8);
+}
+
+.key-gate h1 {
+  font-family: var(--font-display);
+  font-size: var(--heading-md);
+  margin-bottom: var(--sp-3);
+}
+
+.key-gate p {
+  color: var(--ink-soft);
+  font-size: var(--body-sm);
+  line-height: 1.6;
+}
+
+.key-gate input {
+  width: 100%;
+  margin-top: var(--sp-6);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--body-sm);
+  background: var(--paper);
+  color: var(--ink);
+}
