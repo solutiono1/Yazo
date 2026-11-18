@@ -132,6 +132,37 @@
     );
   }
 
+  // A convenience, not a session: this is why there is no cookie and no
+  // account anywhere on this page. A cookie is sent to the server on every
+  // request automatically - that is the entire mechanism that makes
+  // tracking and CSRF possible. localStorage is never sent anywhere; it
+  // just lets this browser remember which key to re-attach itself, the
+  // same way it would remember a bookmark. Wrapped in try/catch because a
+  // private window or blocked site data can make it throw, and the
+  // dashboard must still work with nothing remembered at all.
+  const REMEMBER_KEY = "yazo:lastMerchantKey";
+  function rememberKey(key) {
+    try {
+      localStorage.setItem(REMEMBER_KEY, key);
+    } catch {
+      /* private window, blocked storage - the key still works via the URL */
+    }
+  }
+  function forgetKey() {
+    try {
+      localStorage.removeItem(REMEMBER_KEY);
+    } catch {
+      /* nothing was remembered either way */
+    }
+  }
+  function recalledKey() {
+    try {
+      return localStorage.getItem(REMEMBER_KEY);
+    } catch {
+      return null;
+    }
+  }
+
   async function loadOrders(merchantKey) {
     const res = await fetch("/api/merchants/orders", {
       headers: { Authorization: `Bearer ${merchantKey}` },
@@ -148,6 +179,7 @@
   async function boot(merchantKey) {
     try {
       const { vendorId, orders } = await loadOrders(merchantKey);
+      rememberKey(merchantKey);
       keyGate.hidden = true;
       dashboardRoot.hidden = false;
       vendorFoot.hidden = false;
@@ -156,6 +188,7 @@
       renderStats(orders);
       renderOrders(orders);
     } catch {
+      forgetKey();
       keyGate.hidden = false;
       dashboardRoot.hidden = true;
       newKeyReveal.hidden = true;
@@ -164,9 +197,16 @@
     }
   }
 
+  // The URL fragment wins when present (a link someone was handed), then
+  // whatever this browser remembered from last time - so following a fresh
+  // link never gets silently overridden by an old remembered shop.
   const fromHash = location.hash.slice(1);
+  const fromMemory = fromHash ? null : recalledKey();
   if (fromHash) {
     boot(fromHash);
+  } else if (fromMemory) {
+    location.hash = fromMemory;
+    boot(fromMemory);
   }
 
   // Returning vendor: paste the key they already have.
@@ -205,5 +245,14 @@
     if (!mintedKey) return;
     location.hash = mintedKey;
     boot(mintedKey);
+  });
+
+  document.getElementById("switchShopBtn").addEventListener("click", () => {
+    forgetKey();
+    location.hash = "";
+    keyGate.hidden = false;
+    dashboardRoot.hidden = true;
+    vendorFoot.hidden = true;
+    keyInput.value = "";
   });
 })();

@@ -51,6 +51,39 @@
     stats.forEach((el) => countIo.observe(el));
   }
 
+  // The hero demo card - live code, not a screenshot. Pure front-end state;
+  // it never calls the server, so it is honest about what it is (there is
+  // no fake "processing" delay dressed up as a real settlement).
+  const demoBadge = document.getElementById("demoBadge");
+  const demoAction = document.getElementById("demoAction");
+  const demoResult = document.getElementById("demoResult");
+  const demoCode = document.getElementById("demoCode");
+  const demoReleaseBtn = document.getElementById("demoReleaseBtn");
+  const demoResetBtn = document.getElementById("demoResetBtn");
+
+  if (demoReleaseBtn) {
+    demoReleaseBtn.addEventListener("click", () => {
+      if (!demoCode.value.trim()) {
+        demoCode.focus();
+        return;
+      }
+      demoBadge.className = "badge badge-released";
+      demoBadge.innerHTML = '<span class="dot" aria-hidden="true"></span>Released to the vendor';
+      demoAction.hidden = true;
+      demoResult.hidden = false;
+    });
+    demoResetBtn.addEventListener("click", () => {
+      demoBadge.className = "badge badge-locked";
+      demoBadge.innerHTML = '<span class="dot" aria-hidden="true"></span>Paid and held';
+      demoCode.value = "";
+      demoResult.hidden = true;
+      demoAction.hidden = false;
+    });
+    demoCode.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") demoReleaseBtn.click();
+    });
+  }
+
   // The nav collapses into a floating island once the page has scrolled past
   // its own height, and reverts the moment it's back at the top. rAF-batched
   // so the scroll handler never runs more than once per frame.

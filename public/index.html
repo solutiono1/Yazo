@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/css/tokens.css" />
   <link rel="stylesheet" href="/css/base.css" />
   <link rel="stylesheet" href="/css/buttons.css" />
+  <link rel="stylesheet" href="/css/badges.css" />
   <link rel="stylesheet" href="/css/landing.css" />
 </head>
 <body>
@@ -52,13 +53,35 @@
         </div>
 
         <div class="hero-shot" data-reveal>
-          <p class="hero-shot-tag"><span class="dot" aria-hidden="true"></span> Real screenshot, not a mockup</p>
-          <img
-            src="/images/dashboard.png"
-            width="1440"
-            height="640"
-            alt="The Yazo vendor dashboard, showing four real orders in different states: waiting for payment, paid and held, released to the vendor, and refunded to the payer."
-          />
+          <p class="hero-shot-tag"><span class="dot" aria-hidden="true"></span> Demo &middot; type anything, click Release</p>
+
+          <div class="demo-card">
+            <div class="demo-order-head">
+              <div>
+                <p class="demo-who">Fatima's order</p>
+                <p class="demo-meta">$40.00 &middot; 42,106 sats</p>
+              </div>
+              <span class="badge badge-locked" id="demoBadge"><span class="dot" aria-hidden="true"></span>Paid and held</span>
+            </div>
+
+            <div class="demo-action" id="demoAction">
+              <label for="demoCode">Fatima shows her code to release it</label>
+              <div class="demo-code-row">
+                <input id="demoCode" type="text" placeholder="Type anything - it's a demo" autocomplete="off" spellcheck="false" />
+                <button id="demoReleaseBtn" class="btn btn-primary btn-sm" type="button">Release</button>
+              </div>
+            </div>
+
+            <div class="demo-result" id="demoResult" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5"/>
+              </svg>
+              <p>Released to the vendor. No bank, no waiting, no middleman.</p>
+              <button id="demoResetBtn" class="btn btn-ghost btn-sm" type="button">Run it again</button>
+            </div>
+
+            <p class="demo-footnote">This card is live code, not a screenshot. The real dashboard: <a href="/dashboard.html">launch it →</a></p>
+          </div>
         </div>
       </div>
     </section>
@@ -175,7 +198,7 @@
       <div class="wrap">
         <div class="section-head" data-reveal>
           <p class="section-kicker">Security</p>
-          <h2>Audited like it holds real money, because one day it will.</h2>
+          <h2>Audited like it holds real money.</h2>
           <p>Every claim on this page has a test behind it. Yazo's founder is also its solo auditor, and the full threat model is public: what's defended, and what plainly isn't.</p>
         </div>
 
@@ -184,9 +207,7 @@
           <div>
             <a class="btn btn-ghost btn-sm" href="https://github.com/solutiono1/Yazo/blob/main/SECURITY.md" rel="noopener">Read the full audit →</a>
             <ul class="honesty-list">
-              <li>Typed codes, for feature phones, are weaker than QR codes, and we say so</li>
               <li>This is a testnet demo. No real funds move yet.</li>
-              <li>No cookies, no accounts, no third-party script on this page. There's nothing here to track you with.</li>
             </ul>
           </div>
         </div>

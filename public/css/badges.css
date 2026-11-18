@@ -1,0 +1,36 @@
+/* The order-state pill. Shared between the dashboard (where it was first
+   built) and the landing page's live demo card, which needs the exact
+   same states - a demo that showed a different-looking badge than the
+   real dashboard would be lying about what the real one looks like. */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--radius-full);
+  font-size: var(--caption);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.badge-awaiting { background: var(--paper-sunken); color: var(--state-awaiting); }
+.badge-awaiting .dot { background: var(--state-awaiting); }
+
+.badge-locked { background: var(--state-locked-bg); color: var(--state-locked); }
+.badge-locked .dot { background: var(--state-locked); }
+
+.badge-released { background: var(--state-released-bg); color: var(--state-released); }
+.badge-released .dot { background: var(--state-released); }
+
+.badge-refunded { background: var(--state-refunded-bg); color: var(--state-refunded); }
+.badge-refunded .dot { background: var(--state-refunded); }
+
+.badge-void { background: var(--state-void-bg); color: var(--state-void); }
+.badge-void .dot { background: var(--state-void); }

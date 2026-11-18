@@ -233,6 +233,11 @@
     color-mix(in srgb, var(--gold) 45%, var(--ink)) 55%,
     var(--gold) 100%
   );
+  /* A shadow that blends into the page behind it rather than cutting a
+     hard edge - a soft, wide, gold-tinted glow under the tile, the same
+     "floating above the backdrop" effect the reference site uses. */
+  box-shadow: 0 40px 80px -20px color-mix(in srgb, var(--gold) 45%, transparent),
+    0 16px 32px -12px rgba(24, 20, 15, 0.25);
 }
 
 .hero-shot-tag {
@@ -255,14 +260,102 @@
   background: var(--state-released);
 }
 
-.hero-shot img {
+/* -------------------------------------------------------- live demo card -- */
+
+.demo-card {
   position: relative;
   z-index: 0;
-  width: 100%;
-  display: block;
+  background: var(--paper);
   border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--paper) 15%, transparent);
   box-shadow: var(--shadow-raised);
+  padding: var(--sp-8);
+}
+
+.demo-order-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+
+.demo-who {
+  font-size: var(--heading-sm);
+  font-weight: 600;
+}
+
+.demo-meta {
+  font-family: var(--font-mono);
+  font-size: var(--body-sm);
+  color: var(--ink-muted);
+  margin-top: var(--sp-1);
+}
+
+.demo-action label {
+  display: block;
+  font-size: var(--caption);
+  color: var(--ink-muted);
+  margin-bottom: var(--sp-2);
+}
+
+.demo-code-row {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.demo-code-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 var(--sp-4);
+  height: 44px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--body-sm);
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.demo-code-row input:focus-visible {
+  border-color: var(--gold);
+}
+
+.demo-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) 0;
+}
+
+.demo-result svg {
+  width: 40px;
+  height: 40px;
+  padding: var(--sp-2);
+  border-radius: var(--radius-full);
+  background: var(--state-released-bg);
+  color: var(--state-released);
+}
+
+.demo-result p {
+  font-size: var(--body-sm);
+  color: var(--ink-soft);
+}
+
+.demo-footnote {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hairline);
+  font-size: var(--caption);
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.demo-footnote a {
+  color: var(--gold-ink);
+  font-weight: 600;
 }
 
 /* ---------------------------------------------------------- flow diagram -- */
