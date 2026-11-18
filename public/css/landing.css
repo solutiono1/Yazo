@@ -880,32 +880,6 @@
   justify-content: center;
 }
 
-/* --------------------------------------------------------- disclaimer bar -- */
-
-.disclaimer-bar {
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
-  padding-block: var(--sp-4);
-}
-
-.disclaimer-inner {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--sp-8);
-  flex-wrap: wrap;
-  font-size: var(--caption);
-  color: var(--ink-muted);
-}
-
-.disclaimer-inner p {
-  max-width: 62ch;
-}
-
-.disclaimer-side {
-  white-space: nowrap;
-}
-
 /* ------------------------------------------------------------- footer -- */
 
 .footer {
