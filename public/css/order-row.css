@@ -1,0 +1,75 @@
+/* The order list and its rows. Shared between the dashboard (where it was
+   first built) and the landing page's live demo, which renders the exact
+   same row the real dashboard renders - not a lookalike. */
+
+.order-list {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.order-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  grid-template-areas: "who amounts badge";
+  gap: var(--sp-4);
+  align-items: center;
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--body-sm);
+  min-width: 0;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.order-row:hover {
+  background: var(--paper-raised);
+}
+
+.order-row > * {
+  min-width: 0;
+}
+
+.order-row .who { grid-area: who; }
+.order-row .order-amounts { grid-area: amounts; }
+.order-row .badge { grid-area: badge; }
+
+.order-amounts {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  white-space: nowrap;
+}
+
+.order-row:last-child {
+  border-bottom: none;
+}
+
+.order-row .who {
+  font-weight: 600;
+}
+
+.order-row .meta {
+  color: var(--ink-muted);
+  font-size: var(--caption);
+  margin-top: 2px;
+}
+
+.order-row .amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .order-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "who badge" "amounts amounts";
+    row-gap: var(--sp-2);
+  }
+  .order-row .badge {
+    justify-self: end;
+  }
+  .order-row .order-amounts {
+    justify-self: start;
+  }
+}

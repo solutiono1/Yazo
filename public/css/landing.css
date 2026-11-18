@@ -240,56 +240,73 @@
     0 16px 32px -12px rgba(24, 20, 15, 0.25);
 }
 
-.hero-shot-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-1) var(--sp-3);
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--paper) 92%, transparent);
-  color: var(--ink);
-  font-size: var(--caption);
-  font-weight: 600;
-  margin-bottom: var(--sp-4);
-}
+/* --------------------------------------------------- live demo window -- */
+/* The hero demo is dressed as the real app, not a bare card floating on
+   its own: a sidebar strip echoing the dashboard's nav, with the exact
+   .order-list/.order-row the real dashboard renders inside it, so playing
+   with it feels like using Yazo rather than watching an ad for it. */
 
-.hero-shot-tag .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--state-released);
-}
-
-/* -------------------------------------------------------- live demo card -- */
-
-.demo-card {
+.demo-window {
   position: relative;
   z-index: 0;
+  display: grid;
+  grid-template-columns: 64px 1fr;
   background: var(--paper);
   border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--paper) 15%, transparent);
   box-shadow: var(--shadow-raised);
-  padding: var(--sp-8);
+  overflow: hidden;
 }
 
-.demo-order-head {
+.demo-window-sidebar {
+  background: var(--paper-raised);
+  border-right: 1px solid var(--hairline);
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-6);
+  padding: var(--sp-5) 0;
 }
 
-.demo-who {
+.demo-window-sidebar img {
+  border-radius: 6px;
+  margin-bottom: var(--sp-2);
+}
+
+.demo-nav-item {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+}
+
+.demo-nav-item svg {
+  width: 16px;
+  height: 16px;
+}
+
+.demo-nav-item.is-active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.demo-window-main {
+  padding: var(--sp-6) var(--sp-6) var(--sp-5);
+  min-width: 0;
+}
+
+.demo-window-title {
+  font-family: var(--font-display);
   font-size: var(--heading-sm);
   font-weight: 600;
+  margin-bottom: var(--sp-4);
 }
 
-.demo-meta {
-  font-family: var(--font-mono);
-  font-size: var(--body-sm);
-  color: var(--ink-muted);
-  margin-top: var(--sp-1);
+.demo-action {
+  margin-top: var(--sp-6);
 }
 
 .demo-action label {
@@ -321,7 +338,11 @@
   border-color: var(--gold);
 }
 
-.demo-result {
+/* :not([hidden]) rather than a bare .demo-result - a plain "display: flex"
+   here has the same specificity as the [hidden] UA rule it needs to lose
+   to, and author styles win cascade ties, so the result panel would stay
+   visible underneath the input row the moment the author rule loaded. */
+.demo-result:not([hidden]) {
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/css/base.css" />
   <link rel="stylesheet" href="/css/buttons.css" />
   <link rel="stylesheet" href="/css/badges.css" />
+  <link rel="stylesheet" href="/css/order-row.css" />
   <link rel="stylesheet" href="/css/landing.css" />
 </head>
 <body>
@@ -53,34 +54,67 @@
         </div>
 
         <div class="hero-shot" data-reveal>
-          <p class="hero-shot-tag"><span class="dot" aria-hidden="true"></span> Demo &middot; type anything, click Release</p>
+          <div class="demo-window">
+            <div class="demo-window-sidebar" aria-hidden="true">
+              <img src="/favicon.svg" width="20" height="20" alt="" />
+              <span class="demo-nav-item is-active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="8" height="8" rx="1.5"/>
+                  <rect x="13" y="3" width="8" height="8" rx="1.5"/>
+                  <rect x="3" y="13" width="8" height="8" rx="1.5"/>
+                  <rect x="13" y="13" width="8" height="8" rx="1.5"/>
+                </svg>
+              </span>
+              <span class="demo-nav-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 6h13M8 12h13M8 18h13"/>
+                  <circle cx="3.5" cy="6" r="1.2" fill="currentColor" stroke="none"/>
+                  <circle cx="3.5" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+                  <circle cx="3.5" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+                </svg>
+              </span>
+              <span class="demo-nav-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3 4 6v5c0 5.5 8 9 8 9s8-3.5 8-9V6z"/>
+                </svg>
+              </span>
+            </div>
 
-          <div class="demo-card">
-            <div class="demo-order-head">
-              <div>
-                <p class="demo-who">Fatima's order</p>
-                <p class="demo-meta">$40.00 &middot; 42,106 sats</p>
+            <div class="demo-window-main">
+              <p class="demo-window-title">Your orders</p>
+
+              <div class="order-list">
+                <div class="order-row">
+                  <div>
+                    <p class="who">Fatima's order</p>
+                    <p class="meta">Awaiting her code</p>
+                  </div>
+                  <div class="order-amounts">
+                    <span class="amount">$40.00</span>
+                    <span class="amount meta">42,106 sats</span>
+                  </div>
+                  <span class="badge badge-locked" id="demoBadge"><span class="dot" aria-hidden="true"></span>Paid and held</span>
+                </div>
               </div>
-              <span class="badge badge-locked" id="demoBadge"><span class="dot" aria-hidden="true"></span>Paid and held</span>
-            </div>
 
-            <div class="demo-action" id="demoAction">
-              <label for="demoCode">Fatima shows her code to release it</label>
-              <div class="demo-code-row">
-                <input id="demoCode" type="text" placeholder="Type anything - it's a demo" autocomplete="off" spellcheck="false" />
-                <button id="demoReleaseBtn" class="btn btn-primary btn-sm" type="button">Release</button>
+              <div class="demo-action" id="demoAction">
+                <label for="demoCode">Fatima shows her code to release it</label>
+                <div class="demo-code-row">
+                  <input id="demoCode" type="text" placeholder="Type anything - it's a demo" autocomplete="off" spellcheck="false" />
+                  <button id="demoReleaseBtn" class="btn btn-primary btn-sm" type="button">Release</button>
+                </div>
               </div>
-            </div>
 
-            <div class="demo-result" id="demoResult" hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M20 6 9 17l-5-5"/>
-              </svg>
-              <p>Released to the vendor. No bank, no waiting, no middleman.</p>
-              <button id="demoResetBtn" class="btn btn-ghost btn-sm" type="button">Run it again</button>
-            </div>
+              <div class="demo-result" id="demoResult" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5"/>
+                </svg>
+                <p>Released to the vendor. No bank, no waiting, no middleman.</p>
+                <button id="demoResetBtn" class="btn btn-ghost btn-sm" type="button">Run it again</button>
+              </div>
 
-            <p class="demo-footnote">This card is live code, not a screenshot. The real dashboard: <a href="/dashboard.html">launch it →</a></p>
+              <p class="demo-footnote">This is the real dashboard's order row, live - not a screenshot. <a href="/dashboard.html">Launch the full thing →</a></p>
+            </div>
           </div>
         </div>
       </div>
