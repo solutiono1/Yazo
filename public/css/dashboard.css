@@ -260,7 +260,7 @@
 
 .key-gate-reveal {
   margin-top: var(--sp-6);
-  padding: var(--sp-5);
+  padding: var(--sp-6);
   background: var(--gold-soft);
   border: 1px solid var(--gold);
   border-radius: var(--radius-md);
