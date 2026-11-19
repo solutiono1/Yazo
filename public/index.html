@@ -265,7 +265,11 @@
         <div class="faq" data-reveal>
           <details class="faq-item" name="faq">
             <summary class="faq-q">What happens if the item never arrives?<span class="plus" aria-hidden="true"></span></summary>
-            <div class="faq-a">The hold expires automatically (six hours by default), and the payment returns to the sender. Nobody has to ask for a refund; a watcher does it on its own.</div>
+            <div class="faq-a">The hold expires automatically (six hours by default, configurable up to the ceiling below), and the payment returns to the sender. Nobody has to ask for a refund; a watcher does it on its own.</div>
+          </details>
+          <details class="faq-item" name="faq">
+            <summary class="faq-q">What's the longest Yazo can hold a payment?<span class="plus" aria-hidden="true"></span></summary>
+            <div class="faq-a">24 hours, today - a hard ceiling, not a setting. A Lightning payment that stays locked too long risks forcing the channel carrying it to close, so holding it indefinitely isn't actually safer, it's a different failure mode. That means Yazo is a good fit for same-day and next-day delivery right now; a delivery that genuinely needs longer isn't a fit yet. An on-chain version of the same lock, with no 24-hour limit, is next on the roadmap - see the <a href="https://github.com/solutiono1/Yazo/blob/main/docs/roadmap.md" rel="noopener">roadmap</a> for how.</div>
           </details>
           <details class="faq-item" name="faq">
             <summary class="faq-q">Can the vendor take the money before delivery?<span class="plus" aria-hidden="true"></span></summary>
