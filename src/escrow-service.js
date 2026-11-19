@@ -35,6 +35,7 @@ import { KeyedMutex } from "./keyed-mutex.js";
 export class MemoryStore {
   constructor() {
     this.orders = new Map();
+    this.webhookEndpoints = new Map();
   }
   async get(id) {
     return this.orders.get(id) ?? null;
@@ -45,6 +46,19 @@ export class MemoryStore {
   }
   async all() {
     return [...this.orders.values()];
+  }
+
+  // Endpoint registration only. This store keeps no delivery queue, because a
+  // queue that disappears on restart is not a delivery guarantee - durable
+  // webhooks need the SQLite store.
+  async setWebhookEndpoint({ vendorId, url, secret, at }) {
+    this.webhookEndpoints.set(vendorId, { vendor_id: vendorId, url, secret, created_at: at });
+  }
+  async getWebhookEndpoint(vendorId) {
+    return this.webhookEndpoints.get(vendorId) ?? null;
+  }
+  async deleteWebhookEndpoint(vendorId) {
+    this.webhookEndpoints.delete(vendorId);
   }
 }
 

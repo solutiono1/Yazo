@@ -30,6 +30,8 @@ import {
   TooManyRequests,
 } from "./guards.js";
 import { orderView, receiptView, eventsView, linksView } from "./views.js";
+import { parseTarget, WebhookTargetError } from "../webhooks/target.js";
+import { newEndpointSecret } from "../webhooks/sign.js";
 
 const SECURITY_HEADERS = {
   // Everything is served from this origin. No CDN, no inline script, no eval.
@@ -61,7 +63,12 @@ const MIME = {
   ".woff2": "font/woff2",
 };
 
-export function createServer({ service, publicDir = "public", now = () => Date.now() }) {
+export function createServer({
+  service,
+  publicDir = "public",
+  now = () => Date.now(),
+  allowInsecureWebhooks = false,
+}) {
   // Two limiters: a broad one for everything, and a tight one for the endpoint
   // that guesses at money.
   const general = new RateLimiter({ limit: 120, windowMs: 60_000, now });
@@ -148,6 +155,15 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
     }
   }
 
+  /** The gate every vendor-wide route passes through. */
+  const requireMerchant = (req) => {
+    const key = readBearerHeader(req);
+    if (!key) throw new Unauthorized("a merchant key is required");
+    const vendorId = service.authoriseMerchant(key);
+    if (!vendorId) throw new Unauthorized("that merchant key is not valid");
+    return vendorId;
+  };
+
   /**
    * The single gate every per-order route passes through.
    *
@@ -214,6 +230,71 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
         if (!vendorId) throw new Unauthorized("that merchant key is not valid");
         const orders = await service.ordersForVendor(vendorId);
         send(res, 200, { vendorId, orders: orders.map((o) => orderView(o, { now: now() })) });
+      },
+    },
+
+    // A vendor's webhook endpoint. One per vendor: this is a notification
+    // channel, not a fan-out bus, and a single target is one less thing to
+    // get wrong. The signing secret is returned exactly once, like the
+    // merchant key and the release secret - the same rule, for the same
+    // reason.
+    {
+      method: "PUT",
+      pattern: /^\/api\/merchants\/webhook$/,
+      handler: async (req, res) => {
+        merchants.check(clientKey(req));
+        const vendorId = requireMerchant(req);
+        const body = await readJsonBody(req);
+        let url;
+        try {
+          url = parseTarget(body?.url, { allowInsecure: allowInsecureWebhooks });
+        } catch (e) {
+          if (e instanceof WebhookTargetError) throw new BadRequest(e.message);
+          throw e;
+        }
+        if (!service.store.setWebhookEndpoint) throw new BadRequest("webhooks are not enabled");
+        const secret = newEndpointSecret();
+        await service.store.setWebhookEndpoint({
+          vendorId,
+          url: url.toString(),
+          secret,
+          at: now(),
+        });
+        send(res, 200, {
+          url: url.toString(),
+          signingSecret: secret,
+          signingSecretNotice:
+            "Shown exactly once. Verify every delivery with it: HMAC-SHA256 over `${t}.${rawBody}`, compared against the v1 value in the Yazo-Signature header, rejecting anything older than five minutes.",
+        });
+      },
+    },
+
+    {
+      method: "GET",
+      pattern: /^\/api\/merchants\/webhook$/,
+      handler: async (req, res) => {
+        merchants.check(clientKey(req));
+        const vendorId = requireMerchant(req);
+        const endpoint = service.store.getWebhookEndpoint
+          ? await service.store.getWebhookEndpoint(vendorId)
+          : null;
+        // The secret is not echoed back. If it was lost, it gets replaced.
+        send(res, 200, {
+          webhook: endpoint ? { url: endpoint.url, createdAt: endpoint.created_at } : null,
+        });
+      },
+    },
+
+    {
+      method: "DELETE",
+      pattern: /^\/api\/merchants\/webhook$/,
+      handler: async (req, res) => {
+        merchants.check(clientKey(req));
+        const vendorId = requireMerchant(req);
+        if (service.store.deleteWebhookEndpoint) {
+          await service.store.deleteWebhookEndpoint(vendorId);
+        }
+        send(res, 200, { webhook: null });
       },
     },
 
@@ -378,12 +459,18 @@ export function createServer({ service, publicDir = "public", now = () => Date.n
     try {
       if (pathname.startsWith("/api/")) {
         general.check(clientKey(req));
+        // Match on path first, then on method. Returning 405 at the first
+        // path match would mean a path could only ever carry one method -
+        // the second route registered on it would be unreachable.
+        let pathMatched = false;
         for (const route of routes) {
           const match = pathname.match(route.pattern);
           if (!match) continue;
-          if (req.method !== route.method) return send(res, 405, { error: "method not allowed" });
+          pathMatched = true;
+          if (req.method !== route.method) continue;
           return await route.handler(req, res, match.slice(1), url);
         }
+        if (pathMatched) return send(res, 405, { error: "method not allowed" });
         return send(res, 404, { error: "not found" });
       }
       if (req.method !== "GET") return send(res, 405, { error: "method not allowed" });

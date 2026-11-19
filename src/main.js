@@ -12,6 +12,8 @@ import { SqliteStore } from "./store/sqlite.js";
 import { LndClient } from "./lightning/client.js";
 import { Watcher } from "./watcher.js";
 import { createServer } from "./http/server.js";
+import { WebhookSender } from "./webhooks/sender.js";
+import { orderView } from "./http/views.js";
 
 const config = {
   port: Number(process.env.YAZO_PORT ?? 3000),
@@ -25,6 +27,10 @@ const config = {
   // offline and nothing about an order depends on a third party being up.
   btcUsd: BigInt(process.env.BTC_USD ?? "95000"),
   sweepMs: Number(process.env.YAZO_SWEEP_MS ?? 15_000),
+  // Webhook targets must be https in any real deployment. This exists so a
+  // developer can point one at their own machine, and it is opt-in rather
+  // than inferred from the network, so nothing silently relaxes in production.
+  allowInsecureWebhooks: process.env.YAZO_ALLOW_INSECURE_WEBHOOKS === "1",
 };
 
 const log = (...a) => console.log(new Date().toISOString(), "[yazo]", ...a);
@@ -46,7 +52,16 @@ function merchantSecret() {
 }
 
 async function main() {
-  const store = new SqliteStore(config.dbPath);
+  // The webhook body is the same projection the API serves, so a delivery can
+  // never carry a field the HTTP layer would have withheld.
+  const store = new SqliteStore(config.dbPath, {
+    renderWebhook: (order, entry) => ({
+      event: entry.event,
+      state: entry.state,
+      at: entry.at,
+      order: orderView(order, { now: entry.at }),
+    }),
+  });
   log(`database ${config.dbPath}`);
 
   const node = LndClient.fromLndDir(config.lndDir, {
@@ -87,7 +102,22 @@ async function main() {
   }).start();
   log(`watcher sweeping every ${config.sweepMs}ms`);
 
-  const server = createServer({ service, publicDir: config.publicDir });
+  const sender = new WebhookSender({
+    store,
+    allowInsecureWebhooks: config.allowInsecureWebhooks,
+    allowInsecure: config.allowInsecureWebhooks,
+    onTick: ({ due, dead }) => {
+      if (due) log(`webhooks: ${due} due${dead ? `, ${dead} dead-lettered so far` : ""}`);
+    },
+  });
+  sender.start();
+  log("webhook sender started");
+
+  const server = createServer({
+    service,
+    publicDir: config.publicDir,
+    allowInsecureWebhooks: config.allowInsecureWebhooks,
+  });
   server.listen(config.port, config.host, () => {
     log(`listening on http://${config.host}:${config.port}`);
   });
@@ -95,6 +125,7 @@ async function main() {
   const shutdown = (signal) => {
     log(`${signal}: shutting down`);
     watcher.stop();
+    sender.stop();
     service.stopWatching();
     server.close(() => {
       store.close();

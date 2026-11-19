@@ -10,6 +10,7 @@
 //   order_events  append-only history. Rows are inserted, never updated or
 //                 deleted, so there is an audit trail of every transition.
 import { DatabaseSync } from "node:sqlite";
+import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { encodeOrder, decodeOrder } from "./codec.js";
@@ -35,13 +36,49 @@ CREATE TABLE IF NOT EXISTS order_events (
   state    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_events_order ON order_events (order_id, seq);
+
+CREATE TABLE IF NOT EXISTS webhook_endpoints (
+  vendor_id  TEXT PRIMARY KEY,
+  url        TEXT NOT NULL,
+  secret     TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+-- A delivery is enqueued in the same transaction as the state change that
+-- caused it. That is the whole point: a vendor can never be told about a
+-- release that did not commit, and a release that did commit can never fail
+-- to produce a delivery because the process died a line later.
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id              TEXT PRIMARY KEY,
+  vendor_id       TEXT NOT NULL,
+  order_id        TEXT NOT NULL,
+  event           TEXT NOT NULL,
+  state           TEXT NOT NULL,
+  body            TEXT NOT NULL,
+  created_at      INTEGER NOT NULL,
+  next_attempt_at INTEGER NOT NULL,
+  attempts        INTEGER NOT NULL DEFAULT 0,
+  delivered_at    INTEGER,
+  last_error      TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_wh_due ON webhook_deliveries (delivered_at, next_attempt_at);
 `;
 
 /** States where money is still at stake and the watcher must keep looking. */
 const LIVE_STATES = [STATE.AWAITING_PAYMENT, STATE.LOCKED];
 
 export class SqliteStore {
-  constructor(path = "data/yazo.db") {
+  /**
+   * @param {string} path
+   * @param {object} [opts]
+   * @param {(order: object, entry: object) => object} [opts.renderWebhook]
+   *   Builds the body for one delivery. Injected rather than written here so
+   *   the store never has to know what an order looks like from outside - the
+   *   HTTP layer owns that projection, and a webhook can therefore never
+   *   expose a field the API itself would not.
+   */
+  constructor(path = "data/yazo.db", { renderWebhook = null } = {}) {
+    this.#renderWebhook = renderWebhook;
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
     this.db = new DatabaseSync(path);
     // WAL survives an unclean shutdown far better than the default journal.
@@ -71,8 +108,41 @@ export class SqliteStore {
     this.#selectEvents = this.db.prepare(
       "SELECT at, event, state FROM order_events WHERE order_id = ? ORDER BY seq",
     );
+
+    this.#getEndpoint = this.db.prepare("SELECT * FROM webhook_endpoints WHERE vendor_id = ?");
+    this.#putEndpoint = this.db.prepare(`
+      INSERT INTO webhook_endpoints (vendor_id, url, secret, created_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(vendor_id) DO UPDATE SET
+        url = excluded.url, secret = excluded.secret, created_at = excluded.created_at
+    `);
+    this.#dropEndpoint = this.db.prepare("DELETE FROM webhook_endpoints WHERE vendor_id = ?");
+    this.#enqueueDelivery = this.db.prepare(`
+      INSERT INTO webhook_deliveries
+        (id, vendor_id, order_id, event, state, body, created_at, next_attempt_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    this.#dueDeliveries = this.db.prepare(`
+      SELECT * FROM webhook_deliveries
+      WHERE delivered_at IS NULL AND next_attempt_at <= ?
+      ORDER BY next_attempt_at LIMIT ?
+    `);
+    this.#markDelivered = this.db.prepare(
+      "UPDATE webhook_deliveries SET delivered_at = ?, attempts = ?, last_error = NULL WHERE id = ?",
+    );
+    this.#markFailed = this.db.prepare(
+      "UPDATE webhook_deliveries SET attempts = ?, next_attempt_at = ?, last_error = ? WHERE id = ?",
+    );
   }
 
+  #renderWebhook;
+  #getEndpoint;
+  #putEndpoint;
+  #dropEndpoint;
+  #enqueueDelivery;
+  #dueDeliveries;
+  #markDelivered;
+  #markFailed;
   #upsert;
   #selectOne;
   #selectAll;
@@ -101,8 +171,29 @@ export class SqliteStore {
       );
       // Append only the transitions this store has not already recorded.
       const already = this.#countEvents.get(order.id).n;
-      for (const entry of order.history.slice(already)) {
+      const fresh = order.history.slice(already);
+      for (const entry of fresh) {
         this.#insertEvent.run(order.id, entry.at, entry.event, entry.state);
+      }
+      // Same transaction as the state change, deliberately. Enqueuing after
+      // the commit would mean a crash in between loses the notification for a
+      // transition that really happened.
+      if (this.#renderWebhook && fresh.length) {
+        const endpoint = this.#getEndpoint.get(order.vendorId);
+        if (endpoint) {
+          for (const entry of fresh) {
+            this.#enqueueDelivery.run(
+              randomUUID(),
+              order.vendorId,
+              order.id,
+              entry.event,
+              entry.state,
+              JSON.stringify(this.#renderWebhook(order, entry)),
+              entry.at,
+              entry.at, // first attempt is due immediately
+            );
+          }
+        }
       }
       this.db.exec("COMMIT");
     } catch (e) {
@@ -124,6 +215,33 @@ export class SqliteStore {
   /** The immutable audit trail for one order. */
   async events(orderId) {
     return this.#selectEvents.all(orderId);
+  }
+
+  /* --------------------------------------------------------- webhooks -- */
+
+  async setWebhookEndpoint({ vendorId, url, secret, at }) {
+    this.#putEndpoint.run(vendorId, url, secret, at);
+  }
+
+  async getWebhookEndpoint(vendorId) {
+    return this.#getEndpoint.get(vendorId) ?? null;
+  }
+
+  async deleteWebhookEndpoint(vendorId) {
+    this.#dropEndpoint.run(vendorId);
+  }
+
+  /** Deliveries that are owed and whose backoff has elapsed. */
+  async dueWebhooks(now, limit = 20) {
+    return this.#dueDeliveries.all(now, limit);
+  }
+
+  async markWebhookDelivered(id, { at, attempts }) {
+    this.#markDelivered.run(at, attempts, id);
+  }
+
+  async markWebhookFailed(id, { attempts, nextAttemptAt, error }) {
+    this.#markFailed.run(attempts, nextAttemptAt, String(error).slice(0, 500), id);
   }
 
   close() {

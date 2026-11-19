@@ -14,7 +14,13 @@ async function harness() {
   const node = new FakeLnd();
   const store = new MemoryStore();
   const clock = { t: 1_700_000_000_000 };
-  const service = new EscrowService({ node, store, now: () => clock.t, btcUsd: async () => BTC });
+  const service = new EscrowService({
+    node,
+    store,
+    now: () => clock.t,
+    btcUsd: async () => BTC,
+    merchantSecret: "test-merchant-secret-at-least-16",
+  });
   const server = createServer({ service, now: () => clock.t });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -308,5 +314,103 @@ test("an internal error never leaks its details", async () => {
     assert.doesNotMatch(res.text, /hunter2|postgres|10\.0\.0\.5/);
   } finally {
     h.close();
+  }
+});
+
+/* ------------------------------------------------------------ webhooks -- */
+
+test("a webhook endpoint cannot be set without a merchant key", async () => {
+  const { call, close } = await harness();
+  try {
+    const res = await call("PUT", "/api/merchants/webhook", { url: "https://hooks.example.com/y" });
+    assert.equal(res.status, 401);
+    const get = await call("GET", "/api/merchants/webhook");
+    assert.equal(get.status, 401);
+    const del = await call("DELETE", "/api/merchants/webhook");
+    assert.equal(del.status, 401);
+  } finally {
+    await close();
+  }
+});
+
+test("a forged merchant key cannot set a webhook endpoint", async () => {
+  const { call, close } = await harness();
+  try {
+    const res = await call(
+      "PUT",
+      "/api/merchants/webhook",
+      { url: "https://hooks.example.com/y" },
+      "yzm_v_shop.notarealsignature",
+    );
+    assert.equal(res.status, 401);
+  } finally {
+    await close();
+  }
+});
+
+test("a real merchant key registers an endpoint and gets a secret exactly once", async () => {
+  const { call, close } = await harness();
+  try {
+    const minted = await call("POST", "/api/merchants");
+    assert.equal(minted.status, 201);
+    const key = minted.json.merchantKey;
+
+    const set = await call("PUT", "/api/merchants/webhook", { url: "https://hooks.example.com/y" }, key);
+    assert.equal(set.status, 200);
+    assert.match(set.json.signingSecret, /^yws_/);
+
+    // Reading it back never repeats the secret.
+    const got = await call("GET", "/api/merchants/webhook", undefined, key);
+    assert.equal(got.status, 200);
+    assert.equal(got.json.webhook.url, "https://hooks.example.com/y");
+    assert.equal(got.json.webhook.secret, undefined);
+    assert.equal(JSON.stringify(got.json).includes(set.json.signingSecret), false);
+
+    const removed = await call("DELETE", "/api/merchants/webhook", undefined, key);
+    assert.equal(removed.status, 200);
+    const after = await call("GET", "/api/merchants/webhook", undefined, key);
+    assert.equal(after.json.webhook, null);
+  } finally {
+    await close();
+  }
+});
+
+test("a webhook url pointing inward is refused at registration", async () => {
+  const { call, close } = await harness();
+  try {
+    const key = (await call("POST", "/api/merchants")).json.merchantKey;
+    for (const url of [
+      "http://hooks.example.com/y", // not https
+      "https://127.0.0.1/y",
+      "https://169.254.169.254/latest/meta-data/",
+      "https://localhost/y",
+      "file:///etc/passwd",
+      "not-a-url",
+    ]) {
+      const res = await call("PUT", "/api/merchants/webhook", { url }, key);
+      assert.equal(res.status, 400, `expected ${url} to be refused`);
+    }
+  } finally {
+    await close();
+  }
+});
+
+test("one vendor cannot read or clear another vendor's webhook", async () => {
+  const { call, close } = await harness();
+  try {
+    const a = (await call("POST", "/api/merchants")).json.merchantKey;
+    const b = (await call("POST", "/api/merchants")).json.merchantKey;
+    await call("PUT", "/api/merchants/webhook", { url: "https://a.example.com/y" }, a);
+
+    // B sees its own absence, not A's endpoint.
+    const bSees = await call("GET", "/api/merchants/webhook", undefined, b);
+    assert.equal(bSees.json.webhook, null);
+
+    // And B deleting changes nothing for A.
+    await call("DELETE", "/api/merchants/webhook", undefined, b);
+    const aStill = await call("GET", "/api/merchants/webhook", undefined, a);
+    assert.equal(aStill.json.webhook.url, "https://a.example.com/y");
+  } finally {
+    await close();
   }
 });
