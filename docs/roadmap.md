@@ -114,6 +114,71 @@ authors discourage. The two genuinely valuable Nostr integrations for Yazo are
 narrower and better: NWC so a vendor settles to *their own* wallet, and private
 DMs as a delivery channel for the release code.
 
+### 1.6 The actual pattern: every comparable company becomes B2B infrastructure
+
+This is the finding that answers what was actually asked — not "stablecoins
+and privacy," which were the examples given, but the pattern behind them: a
+payments company watches where the space moves and expands toward a real
+problem there. Looking at what comparable companies *actually did*, not at
+trending keywords, one pattern shows up every time:
+
+- **Bitnob**, in June 2026, launched **Bitnob Enterprise and Bitnob Business**
+  — a shift from consumer app to infrastructure platform. The new stack is
+  wallets-as-a-service, card programs, collections, payouts, and stablecoin
+  settlement, used by "hundreds of businesses globally" across 110+
+  countries. Bitnob Enterprise is explicitly non-custodial — customers keep
+  their own key management and treasury controls.
+- **Yellow Card's own founder, on X, this month:** *"In 2016, the model was a
+  crypto app for consumers. In 2026, Yellow Card is a licensed business to
+  business infrastructure company."* Yellow Card has since acquired a
+  Brazilian licensed entity to extend that infrastructure outside Africa.
+- **Chipper Cash and Yellow Card both partnered with Ripple** to carry RLUSD
+  rather than issuing their own stablecoin — the same "integrate a licensed
+  rail, don't become the issuer" shape already recommended for Yazo's
+  stablecoin option in §2 below.
+
+**Conclusion.** This is bigger than any single feature. The pattern is: start
+as something a person uses directly, and once there is real volume, become
+something *other businesses'* software settles through — paid API access,
+webhooks, conversion rails. **The webhooks built in the previous pass were
+already the first piece of this, not a standalone feature** — that connection
+should have been made explicitly at the time instead of presented as generic
+infrastructure hygiene.
+
+### 1.7 AI agent payments (L402) — a near-free extension of what Yazo already built
+
+The hackathon's own brief names Bitcoin, Nostr, and AI together. This is
+where those three actually intersect, and it costs little to build because
+Yazo already built most of the hard part.
+
+- **Lightning Labs — the company behind LND, which Yazo already runs on** —
+  shipped **L402** this year: an HTTP-native protocol where an AI agent hits
+  an API, gets back a 402 response with a Lightning invoice, pays, and proves
+  payment by presenting the invoice's **preimage**. Lightning Labs
+  open-sourced agent tooling for it (compatible with LangChain, CrewAI) and
+  more recently shipped `pi402`, letting coding agents pay for inference the
+  same way.
+- **The mechanism is not new to Yazo — it is the mechanism Yazo already has.**
+  `src/core/secret.js` already derives a preimage from a secret only the
+  holder knows, and settles a held Lightning invoice only once that preimage
+  is produced. That is L402's proof-of-payment primitive, with one thing most
+  L402 implementations do not have: **Yazo gates it on proof of *delivery*,
+  not just proof of payment.**
+
+**Conclusion.** Most L402 use today is simple pay-per-call API metering —
+pay, get the response, done. Yazo's actual differentiated niche sits one
+layer up: **escrowed payment for AI-agent-commissioned work**, where an agent
+pays for a deliverable and the funds do not move until the deliverable's
+proof shows up — the same hold-until-proof guarantee Yazo already makes for
+humans, pointed at machine-to-machine commerce instead. This is a real,
+narrow, defensible product, and most of the engine for it already exists in
+this codebase.
+
+**Caveat.** L402 adoption claims come mostly from Lightning Labs' own
+materials and crypto-industry press, not independent measurement — treat
+"agents are starting to pay each other in Bitcoin" as a direction, not a
+market size.
+
 ---
 
 ## 2. What got built in this pass
@@ -281,6 +346,44 @@ default for receiver privacy. The reason this is tracked and not built: LND
 Building on it now means building on infrastructure its own maintainers do
 not consider production-ready. Revisit when that changes.
 
+### P1 — Escrowed payments for AI agents (L402 + proof-of-delivery)
+
+From §1.7. The build is smaller than it sounds, because the hard part — a
+secret that only the right party can produce, deriving a preimage, settling a
+held Lightning invoice on it — already exists in `src/core/secret.js` and
+`src/core/escrow.js`. What is new:
+
+1. An L402-shaped HTTP front door: an agent's request to a Yazo-protected
+   resource gets a 402 response carrying a Lightning invoice, rather than the
+   current flow where a human creates an order first.
+2. The same hold mechanics underneath, unchanged — the invoice stays held
+   until the deliverable's proof is presented, not settled the instant
+   payment arrives like plain L402 metering does.
+
+Positioned correctly, this is not "Yazo also supports AI payments" — it is
+"the only escrowed L402 implementation," which is a real, narrow, defensible
+claim given most L402 use today is pay-per-call metering with no hold at all.
+
+### P1 — Infrastructure platform: webhooks as the first piece, not the whole thing
+
+From §1.6. Every comparable company in this space — Bitnob, Yellow Card,
+Chipper Cash — ends up the same shape: not an app a person uses, but rails
+other businesses' software settles through. The webhook system built in the
+previous pass was the first concrete piece of this, whether or not it was
+framed that way at the time. What continues it, in rough order:
+
+1. **Scoped API keys**, distinct from the all-powerful merchant key, so a
+   vendor can hand a third-party integration limited access rather than
+   everything.
+2. **A hosted API reference**, generated from the actual routes rather than
+   hand-written, so "integrate with Yazo" is something a developer can do
+   without reading the source.
+3. **A conversion rail partner integration** (the stablecoin payout option
+   from P1 above) is itself an instance of this pattern, not a separate
+   initiative — it is Yazo integrating someone else's licensed infrastructure,
+   the same way Chipper Cash and Yellow Card integrated Ripple's rather than
+   issuing their own stablecoin.
+
 ### P1 — Share-to-chat order handoff
 
 Directly from §1.4. A created order should produce, in one tap: a short link, a
@@ -367,11 +470,26 @@ Lightning privacy / BOLT12:
 - https://www.spark.money/research/bitcoin-privacy-landscape-2026
 - https://lightningdevkit.org/blog/bolt12-has-arrived
 
-**Research method, stated plainly:** these came from general web search
-(news coverage, blog posts, vendor pages, GitHub, one academic-style paper)
-— not from direct X/Twitter or Reddit threads, which this pass did not
-cover. Where a figure comes from a vendor's own marketing rather than an
-independent source (e.g. the 88.5% USDT-share figure), that is called out
-inline rather than presented as equally solid. The Chainalysis-sourced P2P
-volume figures are the one number in the stablecoin section worth leaning on
-with real confidence.
+Infrastructure-platform pattern (§1.6) and AI agent payments (§1.7):
+- https://techcabal.com/2026/06/03/bitnob-expands-its-infrastructure-platform-for-global-businesses/
+- https://bitnob.com/en-NG/resources/blog/introducing-our-global-crypto-infrastructure-suite-bitnob-business-and-bitnob-enterprise
+- https://x.com/mafolebaraka/status/2119705300832010649 (Yellow Card founder, posted this month)
+- https://thefintechtimes.com/ripple-chipper-cash-valr-yellow-card-africa-partnership/
+- https://l402.tech/
+- https://thedefiant.io/news/infrastructure/lightning-labs-launches-site-for-l402-bitcoin-agent-payments
+- https://inbitcoinwetrust.substack.com/p/ai-agents-are-starting-to-pay-each
+
+**Research method, stated plainly.** These came from general web search —
+news coverage, blog posts, vendor pages, GitHub, one academic-style paper,
+and one real X post. A Reddit-scoped search (`site:reddit.com`) returned
+**no Reddit results at all** — the tool substituted Substack and news
+coverage instead, so Reddit is effectively still uncovered by this doc. An
+X-scoped search returned one genuine, dated post and nothing broader. If
+community-level sentiment (people actually complaining about fake alerts,
+Lightning hold pain, or L402 in practice) matters for a decision, that gap is
+still open and would need a different search approach or manual lookup on
+Reddit/X directly. Where a figure comes from a vendor's own marketing rather
+than an independent source (e.g. the 88.5% USDT-share figure, or any L402
+adoption claim), that is called out inline rather than presented as equally
+solid. The Chainalysis-sourced P2P volume figures are the one number in the
+stablecoin section worth leaning on with real confidence.
