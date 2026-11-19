@@ -11,7 +11,13 @@ import { createServer } from "../src/http/server.js";
 import { EscrowService, MemoryStore } from "../src/escrow-service.js";
 import { FakeLnd } from "../src/lightning/fake.js";
 
-const port = Number(process.env.YAZO_PREVIEW_PORT ?? 4178);
+// PORT is the convention every host (Render, Railway, Fly, Heroku...)
+// injects; YAZO_PREVIEW_PORT stays for local runs that want a fixed port.
+// 0.0.0.0, not 127.0.0.1 - a loopback-only bind is unreachable from outside
+// the machine, which is invisible locally (everything still "just works")
+// and only shows up as a dead deployment once this is actually hosted.
+const port = Number(process.env.PORT ?? process.env.YAZO_PREVIEW_PORT ?? 4178);
+const host = process.env.HOST ?? "0.0.0.0";
 const node = new FakeLnd();
 const store = new MemoryStore();
 const service = new EscrowService({
@@ -51,8 +57,9 @@ async function seed() {
 const merchant = await seed();
 
 const server = createServer({ service, publicDir: "public" });
-server.listen(port, "127.0.0.1", () => {
-  console.log(`[yazo] preview on http://127.0.0.1:${port}`);
+server.listen(port, host, () => {
+  const shown = host === "0.0.0.0" ? "127.0.0.1" : host; // what a human actually types
+  console.log(`[yazo] preview listening on ${host}:${port} (open http://${shown}:${port})`);
   console.log(`[yazo] demo vendorId: ${merchant.vendorId}`);
-  console.log(`[yazo] demo dashboard: http://127.0.0.1:${port}/dashboard.html#${merchant.merchantKey}`);
+  console.log(`[yazo] demo dashboard: http://${shown}:${port}/dashboard.html#${merchant.merchantKey}`);
 });
