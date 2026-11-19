@@ -23,6 +23,72 @@ export const INVOICE_STATE = Object.freeze({
   CANCELED: "CANCELED", // returned to the payer
 });
 
+/**
+ * Split a streaming buffer into complete top-level JSON values plus whatever
+ * incomplete tail is left over.
+ *
+ * lnd's gRPC-gateway stream writes one JSON object per message but does not
+ * reliably separate them with a newline, and a TCP chunk boundary has no
+ * relationship to a message boundary either - two complete frames can arrive
+ * concatenated in a single chunk, or one frame can span several chunks.
+ * Splitting on newlines alone is correct only in the newline-delimited case;
+ * splitting on "ends with }" is correct only for a single frame. Neither
+ * survives frames arriving back to back with nothing between them, which
+ * silently and permanently wedges the buffer - the previous version of this
+ * function did exactly that, and nothing caught it because this path has no
+ * direct coverage (the LND node is faked out in every other test).
+ *
+ * This tracks brace depth directly, respecting JSON string literals and
+ * escapes so a `}` inside a quoted string never counts, and emits a frame
+ * the instant depth returns to zero - independent of whatever whitespace
+ * surrounds it.
+ *
+ * @param {string} buffer
+ * @returns {{ frames: string[], remainder: string }}
+ */
+export function splitFrames(buffer) {
+  const frames = [];
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let frameStart = -1;
+  let i = 0;
+
+  for (; i < buffer.length; i += 1) {
+    const ch = buffer[i];
+
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") {
+      if (depth === 0) frameStart = i;
+      depth += 1;
+      continue;
+    }
+    if (ch === "}") {
+      if (depth === 0) continue; // stray brace outside any object; ignore
+      depth -= 1;
+      if (depth === 0 && frameStart >= 0) {
+        frames.push(buffer.slice(frameStart, i + 1));
+        frameStart = -1;
+      }
+    }
+  }
+
+  // Whatever comes after the last complete frame (whitespace, or a frame
+  // still in progress) is carried forward untouched.
+  const remainder = frameStart >= 0 ? buffer.slice(frameStart) : buffer.slice(i);
+  return { frames, remainder };
+}
+
 export class LndError extends Error {
   constructor(message, status, body) {
     super(message);
@@ -192,22 +258,22 @@ export class LndClient {
         res.setEncoding("utf8");
         let buffered = "";
 
-        // Frames arrive as JSON objects, but a single frame can span several
-        // TCP chunks and lnd does not reliably terminate the last one with a
-        // newline. Splitting on newlines alone silently never emits anything,
-        // which is exactly how this went unnoticed the first time.
+        // Frames arrive as JSON objects, but neither a newline nor a TCP
+        // chunk boundary lines up with a frame boundary - see splitFrames()
+        // for why a heuristic here (newlines, or "buffer ends with }") can
+        // silently and permanently wedge on two frames arriving back to
+        // back with nothing between them.
         const emit = (text) => {
-          const trimmed = text.trim();
-          if (!trimmed || stopped) return true;
+          if (stopped) return;
           let frame;
           try {
-            frame = JSON.parse(trimmed);
+            frame = JSON.parse(text);
           } catch {
-            return false; // incomplete, wait for more
+            return; // genuinely malformed, not just incomplete; drop it
           }
           if (frame.error) {
             onUpdate({ error: frame.error.message ?? "stream error" });
-            return true;
+            return;
           }
           const invoice = frame.result ?? frame;
           if (invoice?.state) {
@@ -217,18 +283,13 @@ export class LndClient {
               settled: Boolean(invoice.settled),
             });
           }
-          return true;
         };
 
         res.on("data", (chunk) => {
           buffered += chunk;
-          let nl;
-          while ((nl = buffered.indexOf("\n")) >= 0) {
-            emit(buffered.slice(0, nl));
-            buffered = buffered.slice(nl + 1);
-          }
-          // No newline yet: the buffer may still hold one complete frame.
-          if (buffered.trim().endsWith("}") && emit(buffered)) buffered = "";
+          const { frames, remainder } = splitFrames(buffered);
+          frames.forEach(emit);
+          buffered = remainder;
         });
       },
     );

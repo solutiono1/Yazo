@@ -45,6 +45,11 @@ export function orderView(order, { now = Date.now() } = {}) {
     createdAt: order.createdAt,
     lockedAt: order.lockedAt,
     settledAt: order.settledAt,
+    // null on every state but REFUNDED/VOID - distinguishes "the recipient
+    // ran out of guesses" from "the hold expired" from "somebody cancelled
+    // it", instead of all three collapsing into the same REFUNDED status
+    // with no way to tell them apart.
+    refundReason: order.refundReason ?? null,
     // Deliberately absent: salt, and anything derived from the release secret.
   };
 }

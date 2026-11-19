@@ -420,7 +420,9 @@ export class EscrowService {
 
     const next = apply(order, event, now);
     await this.node.cancelInvoice(order.paymentHash);
-    return this.store.put({ ...next, refundReason: reason });
+    // apply() always returns a frozen order; re-freeze after spreading, or
+    // this one order silently stops being immutable like every other.
+    return this.store.put(Object.freeze({ ...next, refundReason: reason }));
   }
 
   /**

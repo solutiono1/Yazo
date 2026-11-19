@@ -224,10 +224,7 @@ export function createServer({
       pattern: /^\/api\/merchants\/orders$/,
       handler: async (req, res) => {
         merchants.check(clientKey(req));
-        const key = readBearerHeader(req);
-        if (!key) throw new Unauthorized("a merchant key is required");
-        const vendorId = service.authoriseMerchant(key);
-        if (!vendorId) throw new Unauthorized("that merchant key is not valid");
+        const vendorId = requireMerchant(req);
         const orders = await service.ordersForVendor(vendorId);
         send(res, 200, { vendorId, orders: orders.map((o) => orderView(o, { now: now() })) });
       },

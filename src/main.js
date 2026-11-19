@@ -104,7 +104,6 @@ async function main() {
 
   const sender = new WebhookSender({
     store,
-    allowInsecureWebhooks: config.allowInsecureWebhooks,
     allowInsecure: config.allowInsecureWebhooks,
     onTick: ({ due, dead }) => {
       if (due) log(`webhooks: ${due} due${dead ? `, ${dead} dead-lettered so far` : ""}`);

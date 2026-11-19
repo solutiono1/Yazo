@@ -107,8 +107,21 @@ test("guessing is capped, and the cap refunds the payer automatically", async ()
     await assert.rejects(() => service.release(order.id, "BADCODE" + i), EscrowError);
   }
   // The allowance is spent, so the money went back to the payer by itself.
-  assert.equal((await store.get(order.id)).state, STATE.REFUNDED);
+  const after = await store.get(order.id);
+  assert.equal(after.state, STATE.REFUNDED);
   assert.equal((await node.lookupInvoice(order.paymentHash)).state, INVOICE_STATE.CANCELED);
+  // A refund for burning the guess allowance must stay distinguishable from
+  // one caused by the hold simply expiring, or a vendor/payer checking why
+  // their money came back has no way to tell "they kept guessing wrong" from
+  // "the clock ran out" - both previously surfaced only as bare "REFUNDED".
+  assert.match(after.refundReason, /too many failed release attempts/);
+
+  // apply() always hands back a frozen order; a refund must stay one too, or
+  // this is the one order in the system where a later `order.state = X`
+  // would silently succeed instead of throwing.
+  assert.throws(() => {
+    after.state = "TAMPERED";
+  }, TypeError);
 });
 
 test("an undelivered order refunds when its window passes", async () => {
