@@ -29,6 +29,9 @@
   const vendorSub = document.getElementById("vendorSub");
   const statGrid = document.getElementById("statGrid");
   const orderList = document.getElementById("orderList");
+  const loadError = document.getElementById("loadError");
+  const loadErrorText = document.getElementById("loadErrorText");
+  const retryLoadBtn = document.getElementById("retryLoadBtn");
 
   const BADGE = {
     AWAITING_PAYMENT: "badge-awaiting",
@@ -166,10 +169,29 @@
   // Creating a shop or signing back into one lives on its own page now -
   // this script only ever has a key already in hand (from the URL
   // fragment or from storage) or sends the browser there to get one.
+  // Only a real 401 means the key itself is wrong - everything else (a
+  // transient 500, no network, a render bug in our own code after the key
+  // was already proven valid) must not wipe a working key and send someone
+  // back to re-enter it. That used to be one bare catch around the whole
+  // function, so a momentary server hiccup on reload looked identical to
+  // "your key is invalid."
   async function boot(merchantKey) {
+    let vendorId, orders;
     try {
-      const { vendorId, orders } = await loadOrders(merchantKey);
+      ({ vendorId, orders } = await loadOrders(merchantKey));
+    } catch (e) {
+      if (e.message === "401") {
+        forgetKey();
+        location.href = "/onboarding.html?invalid=1";
+      } else {
+        showLoadError("Couldn't load your orders just now. Your key is fine - try again in a moment.", merchantKey);
+      }
+      return;
+    }
+
+    try {
       rememberKey(merchantKey);
+      loadError.hidden = true;
       dashboardRoot.hidden = false;
       vendorFoot.hidden = false;
       vendorIdLabel.textContent = vendorId;
@@ -177,9 +199,17 @@
       renderStats(orders);
       renderOrders(orders);
     } catch {
-      forgetKey();
-      location.href = "/onboarding.html?invalid=1";
+      // The key is proven valid (the fetch above succeeded) - a rendering
+      // bug here is a Yazo bug, not a reason to log anyone out.
+      showLoadError("Your orders loaded, but something went wrong showing them. Try again.", merchantKey);
     }
+  }
+
+  function showLoadError(message, merchantKey) {
+    dashboardRoot.hidden = true;
+    loadErrorText.textContent = message;
+    loadError.hidden = false;
+    retryLoadBtn.onclick = () => boot(merchantKey);
   }
 
   // The URL fragment wins when present (a link someone was handed), then

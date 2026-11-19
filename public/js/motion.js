@@ -4,6 +4,8 @@
 (() => {
   "use strict";
 
+  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   const revealables = document.querySelectorAll("[data-reveal], [data-reveal-group]");
   if ("IntersectionObserver" in window && revealables.length) {
     const io = new IntersectionObserver(
@@ -35,6 +37,10 @@
           const suffix = el.dataset.countSuffix ?? "";
           const decimals = el.dataset.countDecimals ? Number.parseInt(el.dataset.countDecimals, 10) : 0;
           if (!Number.isFinite(to)) return;
+          if (prefersReduced) {
+            el.textContent = to.toFixed(decimals) + suffix;
+            return;
+          }
           const start = performance.now();
           const duration = 900;
           const step = (now) => {
@@ -108,8 +114,6 @@
   }
 
   // Smooth scroll for the in-page nav, without fighting reduced-motion users.
-  const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
   // The dot field in the footer lights up around the pointer. All this
   // does is move a mask's centre - two custom properties, written once
   // per frame - so the dots themselves are never re-painted or re-laid
@@ -118,12 +122,17 @@
   const dotField = document.getElementById("dotField");
   if (revealFooter && dotField && !prefersReduced) {
     let pending = false;
-    let lastX = 0;
-    let lastY = 0;
+    let lastClientX = 0;
+    let lastClientY = 0;
 
+    // The layout read (getBoundingClientRect) happens here, inside the
+    // rAF-scheduled paint, not in the raw pointermove handler - a handler
+    // firing many times per frame must not force a synchronous layout on
+    // every one of those, only once per frame actually painted.
     const paint = () => {
-      dotField.style.setProperty("--mx", `${lastX}px`);
-      dotField.style.setProperty("--my", `${lastY}px`);
+      const box = revealFooter.getBoundingClientRect();
+      dotField.style.setProperty("--mx", `${lastClientX - box.left}px`);
+      dotField.style.setProperty("--my", `${lastClientY - box.top}px`);
       pending = false;
     };
 
@@ -131,9 +140,8 @@
       "pointermove",
       (e) => {
         if (e.pointerType === "touch") return;
-        const box = revealFooter.getBoundingClientRect();
-        lastX = e.clientX - box.left;
-        lastY = e.clientY - box.top;
+        lastClientX = e.clientX;
+        lastClientY = e.clientY;
         dotField.classList.add("is-live");
         if (pending) return;
         pending = true;

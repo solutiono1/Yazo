@@ -65,8 +65,16 @@
       await verifyKey(value);
       rememberKey(value);
       location.href = `/dashboard.html#${value}`;
-    } catch {
-      showError("That key didn't work. Check it was pasted in full.");
+    } catch (err) {
+      // A real 401 means the key itself is wrong. Anything else - the
+      // server briefly unreachable, a network blip - is not a typo in what
+      // they pasted, and telling them it is sends them hunting for a
+      // mistake that was never there.
+      showError(
+        err.message === "401"
+          ? "That key didn't work. Check it was pasted in full."
+          : "Couldn't check that key just now - the server may be unreachable. Try again in a moment.",
+      );
       submitBtn.disabled = false;
     }
   });
