@@ -164,21 +164,122 @@ method, and only 405s when the path matched but no method did.
 
 Ordered by what would most change whether this can be a business.
 
-### P0 — Escrow that outlives a Lightning hold
+### P0 — MUST DO — Escrow that outlives a Lightning hold
 
-The 24h ceiling (§1.3) is the gap between the product and the pitch. Options,
-roughly in order of how much they cost to be wrong:
+The 24h ceiling (§1.3) is the single biggest gap between what Yazo *is* and
+what it *claims*. Nothing else on this roadmap matters if an order for
+anything that takes longer than a day to deliver cannot exist. This is not
+optional polish — it is load-bearing for the pitch, and it is marked that
+way deliberately.
 
-1. **Make the limit explicit and honest first.** Surface the hold window in the
-   order UI and the docs, and refuse to create an order whose promised delivery
-   obviously exceeds it. Cheap, immediate, and stops Yazo over-promising.
-2. **On-chain HTLC for long holds.** Same hash, same release secret, different
-   rail. Slower and costs fees, but has no 24h ceiling.
-3. **Two-phase:** Lightning for the deposit, with the escrow held off-HTLC and
-   re-invoiced on release. Needs a custody story — which is exactly the trust
-   Yazo removed, so it is last for a reason.
+**Ship now, immediately, costs nothing:** be honest about today's limit.
+Surface the hold window in the order UI and docs, and refuse to create an
+order whose promised delivery obviously exceeds it. This does not fix the
+ceiling — it stops Yazo over-promising while the real fix is built.
 
-Decide by writing the threat model for each, not by picking the easiest.
+**The real fix — submarine swap to an on-chain hash-timelock contract.**
+This is not a novel idea; it is the same pattern already running in
+production inside Lightning Loop, Boltz, and PeerSwap, so the engineering
+risk is "build a known thing," not "invent a new one."
+
+1. The payer still pays over Lightning, instantly, exactly as today. Nothing
+   changes on their side.
+2. Instead of leaving the payment as an unsettled Lightning HTLC, Yazo moves
+   its value into a Bitcoin **on-chain** script locked by the *same hash* the
+   Lightning side used — so the same release secret still unlocks it — but
+   with a **CheckLockTimeVerify timelock measured in days**, not the ~24h a
+   Lightning channel can tolerate. On-chain has no counterparty who can force
+   a channel closed over it.
+3. Recipient shows the code, same as today. Yazo can only now compute the
+   preimage, claims the on-chain output, and pays the vendor over Lightning as
+   usual.
+4. Nobody shows the code → the timelock expires → the payer's refund path
+   unlocks automatically on-chain. Same self-refunding promise, enforced by
+   block height instead of a channel timer.
+
+**Why this preserves the pitch, not just the UX:** "neither can Yazo take it
+early" stays cryptographically true, not just a policy statement — Yazo's
+server still cannot produce the preimage until the code is shown, exactly as
+it cannot today. This is the same guarantee on a longer clock, not a weaker
+one.
+
+**Honest cost.** Yazo has no on-chain wallet component today — it is
+Lightning-only. This needs real UTXO management, CLTV+hashlock script
+construction, fee estimation, and confirmation tracking. Real but bounded:
+weeks, not months, and the hash-lock logic is largely a port of what
+`src/core/secret.js` already does for the Lightning leg.
+
+**Sequencing recommendation:** ship the honest-limit version first (it is a
+UI/copy change), scope v1's actual promise to same-day/next-day delivery and
+digital goods where 24h is already enough, and build the on-chain leg once
+real usage shows it is the thing blocking vendors — not speculatively before
+anyone has hit the ceiling.
+
+Decide between the sequencing above and building the on-chain leg outright by
+writing the threat model for each, not by picking the easiest.
+
+### P1 — Give the vendor a way out of Bitcoin price risk (the stablecoin question)
+
+This is the thing a real payments company actually does as the space moves:
+not "add stablecoins because they're trending," but "find the real problem
+either our users or the space has, and the trend turns out to be the
+solution to it." Here, both are true, and they point at the same fix.
+
+**The real problem — provable from Yazo's own code, not a guess.**
+`quote()` in `src/core/money.js` locks a fixed **sats** amount at quote time,
+and that exact sats amount is what sits in escrow for the whole hold window.
+The vendor's payout is denominated in sats, not dollars. If BTC/USD moves
+during the hold — ordinary, not a crash, just an ordinary day — **the vendor
+delivers goods priced at $40 and gets paid out at whatever $40-in-sats is
+worth hours or days later, with no say in it.** This gets strictly worse once
+the P0 fix above ships multi-day holds: more time locked, more price drift
+the vendor absorbs for free. Today this risk exists, undocumented, and it is
+the vendor's risk alone — Yazo currently gives them no way to opt out of it.
+
+**The trend confirms this is a real problem, not a niche one.** Nigerian
+peer-to-peer stablecoin volume went from **$2.3B to $14.6B between 2022 and
+2026 (Chainalysis)** — more real dollar-value movement among Nigerians
+already happens in USDT than in Bitcoin. **Bitnob — a Lagos-founded
+Lightning/Bitcoin remittance company and Yazo's closest real comparable —
+already pivoted**: their Nigerian product now runs USDT/USDC/NGN conversion
+pairs, and their own 2026 positioning is explicitly "the backbone" for
+business treasury flows that "swap local fiat into USDT, safely repatriating
+funds." Even Cash App, a famously bitcoin-first product, added stablecoin
+support in 2026. Tether is relaunching USDT natively on Bitcoin's own rails
+in October 2026 — notable specifically for Yazo, since Yazo's infrastructure
+is already Bitcoin/Lightning-native.
+
+**What is realistic for Yazo's size — and what is not.** Nigeria's CBN now
+requires local incorporation and roughly **$11M in local capital** for a
+company to issue or custody a stablecoin itself. That rules out Yazo
+*becoming* a stablecoin company outright — correctly; that is not this
+project's business. The move that is actually available: **offer the vendor
+a choice at release time** — receive sats (today's behavior, unchanged,
+default) or have the payout auto-converted to USDT through an existing
+*licensed* conversion partner's API before it reaches them. Bitnob's own
+developer API already exposes exactly this pair (`BTC ↔ USDT`). Yazo would
+be integrating a conversion step, not issuing or custodying a stablecoin —
+no new regulatory surface, no new capital requirement, and the vendor gets
+genuine price certainty instead of none.
+
+**Not yet, and why:** this needs its own threat model before it is built —
+what happens to the "neither party can take it early" guarantee at the
+moment of conversion, who is trusted during the conversion call, and what the
+fallback is if the conversion partner is unreachable at release time. Those
+are real design questions, not blockers; they are the next thing to work
+through together before writing code.
+
+### P2 — Lightning privacy (BOLT12), tracked rather than built
+
+Current Lightning flow uses BOLT11 invoices. Payment amount and timing on
+BOLT11 are more linkable than they need to be — a real concern in a
+remittance context, where being visibly known to have just received money is
+a physical safety risk, not an abstract privacy preference. **BOLT12
+(Offers)** is the fix: merged into the Lightning spec, blinded paths by
+default for receiver privacy. The reason this is tracked and not built: LND
+— which Yazo runs on — only supports BOLT12 behind an **experimental flag**.
+Building on it now means building on infrastructure its own maintainers do
+not consider production-ready. Revisit when that changes.
 
 ### P1 — Share-to-chat order handoff
 
@@ -252,3 +353,25 @@ Chat commerce:
 Nostr commerce:
 - https://www.crays.org/nostr/commerce/standards/
 - https://github.com/lnbits/nostrmarket
+
+Stablecoins and Bitnob (competitive context):
+- https://technext24.com/2026/03/11/bitnobs-bold-play-dominate-crypto-africa/
+- https://www.bitnob.co/blog/how-to-send-and-receive-usdt-instantly-in-nigeria
+- https://bitnob.dev/docs/trading/overview
+- https://www.kucoin.com/news/insight/USDT/6afc46e99278e40007d85bf7 (Chainalysis P2P volume figures - the most credible number in this section)
+- https://cryptonews.net/news/market/33716659/ (CBN capital/licensing requirement for stablecoin issuers)
+- https://www.americanbanker.com/payments/news/jack-dorseys-block-adds-support-for-stablecoins
+- https://247wallst.com/investing/cryptocurrency/2026/10/04/tether-brings-its-184-billion-stablecoin-back-to-bitcoin-will-btc-regain-its-role-as-a-payments-network/
+
+Lightning privacy / BOLT12:
+- https://www.spark.money/research/bitcoin-privacy-landscape-2026
+- https://lightningdevkit.org/blog/bolt12-has-arrived
+
+**Research method, stated plainly:** these came from general web search
+(news coverage, blog posts, vendor pages, GitHub, one academic-style paper)
+— not from direct X/Twitter or Reddit threads, which this pass did not
+cover. Where a figure comes from a vendor's own marketing rather than an
+independent source (e.g. the 88.5% USDT-share figure), that is called out
+inline rather than presented as equally solid. The Chainalysis-sourced P2P
+volume figures are the one number in the stablecoin section worth leaning on
+with real confidence.
