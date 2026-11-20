@@ -102,7 +102,32 @@ Not a separate deployment. If the user wants a nicer URL than the Railway
 default, point a Cloudflare-managed domain at the Railway URL via a CNAME
 record in Cloudflare's DNS dashboard. Zero code changes, zero risk. Skip this
 entirely if there's no spare domain already in Cloudflare — the Railway URL
-alone is a completely valid "Try it out" link for judging.
+alone is a completely valid "Try it out" link for judging, and buying a
+domain today specifically for this is not worth the detour.
+
+**Prerequisite:** a domain already using Cloudflare nameservers. If there
+isn't one, stop here and use the Railway URL as-is.
+
+If there is one:
+
+1. **Railway** → the service → **Settings → Networking → Custom Domain** →
+   enter the desired subdomain (e.g. `yazo.yourdomain.com`) → Railway shows a
+   CNAME target value (something like `xxxxx.up.railway.app`). Copy it
+   exactly.
+2. **Cloudflare** → the domain → **DNS** tab → **Add record**:
+   - Type: `CNAME`
+   - Name: the subdomain only (e.g. `yazo`), not the full domain
+   - Target: the value Railway gave
+   - **Proxy status: "DNS only" (grey cloud), not proxied, for the first
+     setup.** Railway auto-issues its own TLS certificate via Let's Encrypt;
+     Cloudflare's proxy can interfere with that verification on the first
+     pass. Switch to proxied (orange cloud) afterward, once Railway shows the
+     domain as verified, if the Cloudflare CDN is wanted on top.
+3. Save, then wait in Railway for the domain to show as verified with a
+   valid certificate — usually minutes, occasionally up to ~30 for DNS
+   propagation.
+4. Open the custom URL directly and confirm the real app loads before using
+   it anywhere (Devpost, the README, anywhere else).
 
 ### After deploying
 
